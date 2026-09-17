@@ -36,6 +36,8 @@ Note that you can use your custom config with own notemappings and other setting
 cargo run --release -- -c example_config.toml
 ```
 
+> **New:** Full mapping + pages are now configurable. See **[USER_GUIDE.md](USER_GUIDE.md)** for the complete mapping tables, pad pages (Group+Pad like on Windows), buttons/encoder/strip config, LED colors and troubleshooting.
+
 **Important note about MIDI backends:** By default, ALSA backend is used to create virtual MIDI port. If you need Jack backend, please use this command instead:
 ```shell
 cargo run --release --features jack
@@ -58,10 +60,7 @@ So, basically everything, and even more than with the official driver.
 For example, it is now possible to turn unpressed pad LEDs completely off in the layout.
 Or it turns out that every button has 4 levels of brightness, not just Off/On as in the official MIDI Mode.
 
-Although at the moment, only pads are exported via MIDI.
-Pad MIDI notes can be changed through custom toml config (e.g., `-c example_config.toml`).
-
-Would be cool to be able to export buttons and other functions via MIDI, OSC, etc too. GUI editor for the config file might be nice to have too.
+All controls are now exported via MIDI — pads (with 8 pages), 39 buttons, encoder and touch strip — configurable via `example_config.toml`. See [USER_GUIDE.md](USER_GUIDE.md).
 
 Contributions are welcome!
 
