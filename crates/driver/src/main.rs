@@ -340,18 +340,15 @@ fn handle_encoder(port: &mut MidiOutputConnection, settings: &Settings, raw: u8)
     }
 }
 
-fn handle_slider(port: &mut MidiOutputConnection, settings: &Settings, raw: u8) {
+fn handle_slider(port: &mut MidiOutputConnection, settings: &Settings, raw: u8, is_pitchbend: bool) {
     if raw == 0 {
         return;
     }
     let ch = settings.effective_channel(settings.slider.channel);
     let cc = settings.slider.cc;
-    // raw approx 1..200 as per lights logic -> scale to 0..127
     let scaled = ((raw as u16 * 127) / 200).min(127) as u8;
-    // Alternative scaling via 255 if raw larger
     let val = scaled;
-    match settings.slider.mode.as_str() {
-        "pitchbend" => {
+    if is_pitchbend {
             // map 0..127 to 0..16383 centered? Use simple: val scaled to 14-bit
             let bend_val = (val as u16 * 128) + 8192; // crude center
             let bend = midly::num::u14::from(bend_val.min(16383));
@@ -361,8 +358,7 @@ fn handle_slider(port: &mut MidiOutputConnection, settings: &Settings, raw: u8) 
                 ch,
                 MidiMessage::PitchBend { bend: midly::PitchBend(bend) },
             );
-        }
-        _ => {
+        } else {
             println!("Slider -> CC {} ch {} val {} raw {}", cc, ch, val, raw);
             send_midi(
                 port,
@@ -373,7 +369,6 @@ fn handle_slider(port: &mut MidiOutputConnection, settings: &Settings, raw: u8) 
                 },
             );
         }
-    }
 }
 
 fn main_loop(
@@ -391,10 +386,24 @@ fn main_loop(
     let mut button_prev = [false; 64];
     let norm_map = normalized_button_map(settings);
     let mut transpose_offset: i32 = 0;
+    let mut strip_is_pitchbend = settings.slider.mode == "pitchbend";
 
     // For auto-clearing page selector LEDs
     let mut selector_active = false;
     let mut selector_since: Option<Instant> = None;
+
+    // Init Pitch/Mod LEDs to reflect strip mode
+    {
+        let pitch_btn = Buttons::Pitch;
+        let mod_btn = Buttons::Mod;
+        if lights.button_has_light(pitch_btn) {
+            lights.set_button(pitch_btn, if strip_is_pitchbend { Brightness::Bright } else { Brightness::Off });
+        }
+        if lights.button_has_light(mod_btn) {
+            lights.set_button(mod_btn, if !strip_is_pitchbend { Brightness::Bright } else { Brightness::Off });
+        }
+        let _ = lights.write(device);
+    }
 
     // Prepare pad color helpers
     let default_pad_color = PadColors::Blue;
@@ -465,9 +474,25 @@ fn main_loop(
                             println!("Button release: {:?}", button);
                         }
 
-                        // Transpose handling (reserved, no MIDI)
-                        // Left/Right by 1 semitone, Shift+Left/Right by 1 octave (vertical flip fixed: Right=up, Left=down)
-                        if let Some(action) = transpose_action(settings, button) {
+                        // Strip mode toggle: Pitch = pitchbend, Mod = modwheel (original Maschine)
+                        // Pressing Pitch makes strip act as pitch bend, Mod as mod wheel (CC1)
+                        if status && (button == Buttons::Pitch || button == Buttons::Mod) {
+                            let new_is_pitch = button == Buttons::Pitch;
+                            if new_is_pitch != strip_is_pitchbend {
+                                strip_is_pitchbend = new_is_pitch;
+                                println!("Strip mode -> {}", if strip_is_pitchbend { "PitchBend" } else { "ModWheel" });
+                            }
+                            // Keep LEDs latched to show active mode
+                            if lights.button_has_light(Buttons::Pitch) {
+                                lights.set_button(Buttons::Pitch, if strip_is_pitchbend { Brightness::Bright } else { Brightness::Off });
+                            }
+                            if lights.button_has_light(Buttons::Mod) {
+                                lights.set_button(Buttons::Mod, if !strip_is_pitchbend { Brightness::Bright } else { Brightness::Off });
+                            }
+                            changed_lights = true;
+                        } else if !status && (button == Buttons::Pitch || button == Buttons::Mod) {
+                            // release of Pitch/Mod – keep LED as latched, no MIDI
+                        } else if let Some(action) = transpose_action(settings, button) {
                             if status {
                                 let delta = match action {
                                     TransposeAction::SemitoneUp => if shift_held { 12 } else { 1 },
@@ -576,7 +601,7 @@ fn main_loop(
                     lights.set_slider(i as usize, b);
                 }
                 changed_lights = true;
-                handle_slider(port, settings, slider_val);
+                handle_slider(port, settings, slider_val, strip_is_pitchbend);
             }
         } else if buf[0] == 0x02 {
             // pad mode

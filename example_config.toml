@@ -55,8 +55,8 @@ pad_aftertouch = "poly"
 # Transpose: shift all pad notes globally, so one chromatic page + transpose
 # replaces many chromatic pages. Buttons here are reserved (no MIDI) and
 # adjust transpose offset (-48..+48, clamped). Screen shows T±n.
-# Mapping: Left/Right by 1 semitone, Shift+Left/Right by 1 octave.
-# Pitch/Mod are now free for MIDI CC (previously used for transpose).
+# Mapping: Left (-1) / Right (+1) by semitone, Shift+Left/Right by octave.
+# Pitch/Mod are now strip toggles (Pitch=pitchbend, Mod=modwheel) – see below.
 # With transpose, you need not keep all C0-C6 – keep 1-2 chromatic pages
 # (e.g. C2) and free the rest for drums/scales. Example below keeps
 # chromatic till page 8 (as you have), but you can delete C0-C6 extras
@@ -68,6 +68,7 @@ octave_up = ""          # handled via Shift+Right (+12)
 octave_down = ""        # handled via Shift+Left (-12)
 reset = ""              # e.g. "Shift" to reset to 0, empty = disabled
 # Shift+Left/Right automatically becomes octave when Shift held
+# Strip toggle: Pitch = pitchbend, Mod = modwheel (original Maschine, latched LEDs)
 
 # Encoder (Navigation wheel) and Slider (Touchstrip) from Windows
 [encoder]
