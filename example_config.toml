@@ -114,7 +114,7 @@ auto_page_button = "Auto"
 lock_page_button = "Lock"
 pad_page_hold_select = true
 pad_aftertouch = "poly"
-daw_mackie = true  # Play/Rec/Stop as Mackie MCU Note 94/95/93
+daw_mackie = false  # was true for Mackie MCU (Play 94/Stop 93/Rec 95) but active MIDI input doesn't work as DAW control, so now free (Play/Rec/Stop send CC 57/58/59)
 
 # Scale names for 32 pages (must match pad_pages order; used for chord config)
 scale_names = ['Chromatic', 'Major', 'Minor', 'Dorian', 'Mixolydian', 'Phrygian', 'Lydian', 'Harmonic Minor', 'Melodic Minor', 'Double Harmonic', 'Minor Pentatonic', 'Minor Blues', 'Hungarian Minor', 'Hirajoshi', 'In Sen', 'Iwato', 'Chromatic Up', 'Major Up', 'Minor Up', 'Dorian Up', 'Mixolydian Up', 'Phrygian Up', 'Lydian Up', 'Harmonic Minor Up', 'Melodic Minor Up', 'Double Harmonic Up', 'Minor Pentatonic Up', 'Minor Blues Up', 'Hungarian Minor Up', 'Hirajoshi Up', 'In Sen Up', 'Iwato Up', 'Chromatic Lock', 'Major Lock', 'Minor Lock', 'Dorian Lock', 'Mixolydian Lock', 'Phrygian Lock', 'Lydian Lock', 'Harmonic Minor Lock', 'Melodic Minor Lock', 'Double Harmonic Lock', 'Minor Pentatonic Lock', 'Minor Blues Lock', 'Hungarian Minor Lock', 'Hirajoshi Lock', 'In Sen Lock', 'Iwato Lock']
