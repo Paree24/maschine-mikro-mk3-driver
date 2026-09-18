@@ -38,7 +38,7 @@ Note that you can use your custom config with own notemappings and other setting
 cargo run --release -- -c example_config.toml
 ```
 
-> **New:** Full mapping + pages are now configurable. See **[USER_GUIDE.md](USER_GUIDE.md)** for mapping tables, pad pages (Group+Pad like on Windows), buttons/encoder/strip config, and **[BUTTON_MAPPING.md](BUTTON_MAPPING.md)** for button→functionality & free buttons.
+> **New:** Full mapping + 64 pages are now configurable. See **[USER_GUIDE.md](USER_GUIDE.md)** for mapping tables, pad pages (Group/Auto/Lock/PadMode like on Windows), buttons/encoder/strip config, and **[BUTTON_MAPPING.md](BUTTON_MAPPING.md)** for button→functionality & free buttons.
 
 **Important note about MIDI backends:** By default, ALSA backend is used to create virtual MIDI port. If you need Jack backend, please use this command instead:
 ```shell
@@ -51,22 +51,20 @@ I tried to make a version that could do both, but due to 1) how `midir` handles 
 ## Progress
 
 What works:
- - Pads,
- - Buttons,
- - Encoder,
- - Slider,
- - LEDs,
- - Screen.
+ - Pads (64 pages: 48 scales + 16 drums),
+ - Buttons (39, all with gates/toggles),
+ - Encoder (CC7 relative),
+ - Slider / Touch Strip (PitchBend/ModWheel/Free + 25 LEDs),
+ - LEDs (4-level Brightness, per-pad/page colors),
+ - Screen (page/arp/transpose).
 
 So, basically everything, and even more than with the official driver.
-For example, it is now possible to turn unpressed pad LEDs completely off in the layout.
-Or it turns out that every button has 4 levels of brightness, not just Off/On as in the official MIDI Mode.
+For example, it is now possible to turn unpressed pad LEDs to Dim and show per-page colors, and every button has 4 brightness levels (Off/Dim/Normal/Bright).
 
-All controls are now exported via MIDI — pads (with 8 pages), 39 buttons, encoder and touch strip — configurable via `example_config.toml`. See [USER_GUIDE.md](USER_GUIDE.md).
+All controls are now exported via MIDI — pads (with 64 pages), 39 buttons, encoder and touch strip — configurable via `example_config.toml`. See [USER_GUIDE.md](USER_GUIDE.md).
 
 Contributions are welcome!
 
 ## Goal
 
-The current goal is to reimplement the official MIDI Mode: mappable pads, buttons, slider, encoder, changeable LED color schemes.
-Advanced uses, like modal functions as in Maschine software (e.g., Scenes, Patterns, Shift+Pad actions) are not yet planned.
+The current goal is to reimplement the official MIDI Mode: mappable pads, buttons, slider, encoder, changeable LED color schemes, plus extended performance features (scales, chords, arpeggiator, swing, transpose, strip modes). Advanced modal functions beyond that are still community-driven.

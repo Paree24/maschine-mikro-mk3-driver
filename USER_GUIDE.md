@@ -1,6 +1,6 @@
 # Maschine Mikro MK3 — User Guide (Linux Driver)
 
-This guide covers how to install, run, configure and customize the userspace MIDI driver for the **Native Instruments Maschine Mikro MK3** on Linux. The driver exposes all controls via a virtual MIDI port — pads, buttons, encoder and touch strip — with the same “pages” workflow you have on Windows in Controller Editor.
+This guide covers install, run, configure and customize the userspace MIDI driver for the **Native Instruments Maschine Mikro MK3** on Linux. The driver exposes all controls via a virtual MIDI port — pads, buttons, encoder and touch strip — with the same “pages” workflow you have on Windows in Controller Editor, plus extended scales/chords/arp.
 
 ---
 
@@ -32,12 +32,12 @@ cargo run --release --features jack  # JACK backend (compile-time choice)
 On start the controller:
 
 * runs a self-test (`00 → 03` on screen, all LEDs cycle),
-* shows `1/1` (or `1/8` etc.) on the screen,
+* shows `1/64` (or `1/48` etc.) on the screen,
 * creates a virtual port `Maschine Mikro MK3 MIDI Out` (`client_name` / `port_name` in config).
 
-Point your DAW / Hydrogen / REAPER / Ardour / etc. at that port.
+Point your DAW / Hydrogen / REAPER / Ardour at that port.
 
-> **No hardware?** The driver still validates the config and prints `Running with settings:` / `Effective pad_pages` before trying to open USB. Useful for dry-run checks.
+> **No hardware?** The driver still validates the config and prints `Running with settings:` / `Effective pad_pages (64 pages)` before trying to open USB. Useful for dry-run checks.
 
 ### With a Custom Config
 
@@ -46,7 +46,7 @@ cargo run --release -- -c example_config.toml
 cargo run --release -- -c /path/to/my.toml
 ```
 
-All keys are optional — missing values inherit built-in defaults (`crates/driver/src/settings.rs:172`). See `example_config.toml` (192 lines, fully commented).
+All keys are optional — missing values inherit built-in defaults (`crates/driver/src/settings.rs:248`). See `example_config.toml` (now 64 pages, fully commented). Systemd user service: `~/.config/systemd/user/maschine-mikro.service` → `cargo build --release && systemctl --user restart maschine-mikro.service`.
 
 ---
 
@@ -62,7 +62,7 @@ All keys are optional — missing values inherit built-in defaults (`crates/driv
                          [ 128×64 mono screen ]
 ```
 
-* **16 pads** — velocity + aftertouch, RGB (`Off, Red, Orange, LightOrange, WarmYellow, Yellow, Lime, Green, Mint, Cyan, Turquoise, Blue, Plum, Violet, Purple, Magenta, Fuchsia, White`) + 4 brightness levels (`Off, Dim, Normal, Bright` — more than official “on/off”).
+* **16 pads** — velocity + aftertouch, RGB (`Off, Red, Orange, LightOrange, WarmYellow, Yellow, Lime, Green, Mint, Cyan, Turquoise, Blue, Plum, Violet, Purple, Magenta, Fuchsia, White`) + 4 brightness levels (`Off, Dim, Normal, Bright`).
 * **39 button LEDs + 25 strip LEDs** (`crates/maschine_library/src/lights.rs:53` — every button except `EncoderPress/Touch` has LED).
 * Screen is a 128×32 buffered mono display (`crates/maschine_library/src/screen.rs:3`).
 
@@ -72,8 +72,8 @@ All keys are optional — missing values inherit built-in defaults (`crates/driv
 
 ### 3.1 Channels
 
-* `midi_channel` — default for **buttons / encoder / strip** (`0` → `Ch 1` in DAWs). Range `0–15`.
-* `pad_channel` — dedicated pad channel, default `9` → `Ch 10` (GM drums). Keeps drums separate from CCs.
+* `midi_channel` — default for **buttons / encoder / strip** (`0` → `Ch 1`). Range `0–15`.
+* `pad_channel` — dedicated pad channel, default `9` → `Ch 10` (GM drums). Keeps drums separate.
 
 Override per-control with `channel = N`.
 
@@ -81,10 +81,10 @@ Override per-control with `channel = N`.
 
 | Control | Types (`type = ...`) | MIDI sent |
 |---------|----------------------|-----------|
-| Button | `cc` (default), `note`, `pc`, `off` | `CC value 127` on press / `0` on release; `NoteOn vel 127` / `NoteOff`; `ProgramChange` on press |
+| Button | `cc` (default), `note`, `pc`, `off` | `CC` `127` on press / `0` on release; `NoteOn vel 127` / `NoteOff`; `ProgramChange` on press |
 | Pad | fixed `NoteOn/NoteOff` per page + optional aftertouch | `NoteOn/NoteOff` on `pad_channel`; `poly` → `Poly Aftertouch`, `channel` → `Channel Aftertouch`, `cc` → `CC 74`, `off` → nothing |
 | Encoder | `cc` + `mode` | `relative` → `CC 1` (cw) / `127` (ccw) per tick; `absolute` → `0–127` |
-| Strip | `cc` / `pitchbend` + `mode` | `absolute` → `0–127` scaled from raw `1–200`; `pitchbend` → 14-bit; `relative` |
+| Strip | `cc` / `pitchbend` + `mode` | `PitchBend` → 14-bit `0..16383` center `8192`; `ModWheel` `CC1` hold; `Free` `CC16` hold (see §4.5) |
 
 Per-button `value_press` / `value_release` customizes CC velocities (defaults `127/0`).
 
@@ -92,97 +92,119 @@ Per-button `value_press` / `value_release` customizes CC velocities (defaults `1
 
 ## 4. Current Default Mapping
 
-This is what you get with `cargo run` **without** a config, or with `example_config.toml` unedited. All button CCs are editable — defaults are also defined in `crates/driver/src/settings.rs:195`.
+Defaults defined in `crates/driver/src/settings.rs:277` and `example_config.toml`.
 
-### 4.1 Pads — Pages
+### 4.1 Pads — 64 Pages (48 scales + 16 drums)
 
-`pad_pages` is 8 pages by default (max 16). Page `0` is startup.
+`pad_pages` is 64 pages by default (max 64). Page `0` is startup. `example_config.toml` ships 48 scales + 16 drum kits.
 
-| Page | Purpose | 16 Notes (MIDI # — name) |
-|------|---------|---------------------------|
-| **1** | General drums (GM) | `36 C2, 38 D2, 42 F#2, 46 A#2, 43 G2, 47 B2, 49 C#3, 51 D#3, 37 C#2, 39 D#2, 44 G#2, 45 A2, 48 C3, 50 D3, 52 E3, 53 F3` |
-| **2** | Alt kit | `36,38,42,46,41,43,45,49,35,37,39,40,44,48,52,55` |
-| **3** | Chromatic C2–C3 | `48–63` (`C2`→`D#3` linear) |
-| **4** | Chromatic C3–C4 | `60–75` (`C3`→`D#4`) |
-| **5** | Bass / 808 | `36–51` linear |
-| **6** | Legacy example (old `notemaps`) | `49,27,31,57,48,47,43,59,36,38,46,51,36,38,42,44` |
-| **7** | Chromatic C4–C5 | `72–87` |
-| **8** | Sub C1–C2 | `36–51` |
+| Bank | Button | Pages | Purpose |
+|------|--------|-------|---------|
+| **Group** | `Group+Pad` / tap `Group` | 1-16 (0-15) | Scales 1-16 (Chromatic … Iwato) |
+| **Auto** | `Auto+Pad` / tap `Auto` | 17-32 (16-31) | Scales 17-32 (Kumoi … Romanian Minor) |
+| **Lock** | `Lock+Pad` / tap `Lock` | 33-48 (32-47) | Scales 33-48 (… up) |
+| **PadMode** | `PadMode+Pad` / tap `PadMode` | 49-64 (48-63) | Drums 1-16 (fresh, `36,38,42,46... +2 per page`) — gate unlocks |
 
-Legacy single-page `notemaps = [16 notes]` is still supported — if `pad_pages` is absent the driver wraps it as one page.
+`pad_page_button="Group"`, `auto_page_button="Auto"`, `lock_page_button="Lock"`, padmode hard-coded to `48`. Hold-select: `pad_page_hold_select=true` (hold button + tap pad selects directly, tap alone cycles). Set `pad_page_button=""` to disable paging.
 
-**Velocity:** `vel = max(1, val>>5)` from raw `0–2047` (`crates/driver/src/main.rs:539`).
+Legacy `notemaps = [16 notes]` still supported — wraps as one page.
+
+**Velocity:** `vel = max(1, val>>5)` from raw `0–2047`, or `127` when `FixedVol` toggled. Aftertouch `poly/channel/cc/off`.
+
+**Colors:** `pad_colors` (16 per-pad) or `pad_page_colors` (64 per-page, `Red,Orange,...White` cycle). Pads `Dim` by default, `Normal` on press, `Dim` on release; page selector `Bright` current vs `Dim` others for 700 ms, then `Dim`.
 
 ### 4.2 Page Switching (Windows parity)
 
-`pad_page_button = "Group"` (default) + `pad_page_hold_select = true`:
+* **Hold `Group` + tap Pad** → jump to `1-16`. **Tap `Group`** → cycle `1→2→…→16→1` (or next in bank if `hold_select` and already in bank, with correct first-entry to `1`/`17`/`33`/`49`).
+* **Hold `Auto` + pad** → `17-32`, tap `Auto` cycles `17-32`.
+* **Hold `Lock` + pad** → `33-48`, tap `Lock` cycles `33-48`.
+* **Hold `PadMode` + pad** → `49-64` (49th page = index 48, first press from outside goes to 49), tap `PadMode` cycles `49-64`. `PadMode` also gates drum note mapping (see §4.7).
+* Screen shows `n/64` (or `n/48` if only 48 pages configured).
 
-* **Hold `Group` + tap Pad `0–7`** → jump directly to page `1–8` (like `Group + Pad A–H` in Controller Editor). LED selector shows current page (Bright) vs others (Dim); screen shows `n / total` (`crates/driver/src/main.rs:132`).
-* **Tap `Group` alone** → cycle `1→2→…→8→1`.
-* Set `pad_page_button = ""` to disable paging (static drums).
-* Or `pad_page_hold_select = false` to cycle only.
+Paging buttons are reserved — won’t send MIDI when paging is active.
 
-> The paging button is reserved — it won’t send its configured MIDI when paging is active and multiple pages exist. Disable paging or pick another button (`PadMode`, `Keyboard`, …) if you need `Group` as a CC.
+### 4.3 Buttons — Toggles vs Gates
 
-### 4.3 Buttons
+| Button | Type | MIDI CC (example_config) | Status | Notes |
+|--------|------|--------------------------|--------|-------|
+| `Maschine` | Gate (arp) / CC | `CC 38` | **Reserved when arp on** `faster rate`, else sends CC | Arp rate `faster` (next pure fraction `3/4..1/96`) |
+| `Star` | Gate (arp) / CC | `CC 39` | Reserved when arp on `slower rate`, else CC | Arp rate `slower` |
+| `Browse` | CC | `CC 40` | Sends CC | Free |
+| `Volume` | CC | `CC 44` | Sends CC | Free |
+| `Swing` | **Gate** arp swing | `CC 46` | **Reserved** | Cycles `Straight 50 / Light 55 / Medium 60 / Triplet 66.7` `Bright` on press `Dim` on release |
+| `Tempo` | Gate / CC | `CC 48` | Reserved when arp on (Bright), else CC | Free when arp off |
+| `Plugin` | CC | `CC 45` | Sends CC | Free |
+| `Sampling` | Gate (arp) | `CC 47` | Reserved when arp on | Cycles `arp_octaves 1→2→3→4→1` |
+| `Left` | **Transpose −1** | – (reserved) | Reserved | `Shift+Left` = −12 octave, range `−48..+48` |
+| `Right` | **Transpose +1** | – (reserved) | Reserved | `Shift+Right` = +12 |
+| `Pitch` | **Strip → PitchBend** (3-way) | `CC 49` overridden | Reserved | `Bright` = PitchBend spring to `8192` center, 25 LEDs dim on release |
+| `Mod` | **Strip → ModWheel** | `CC 50` overridden | Reserved | `Bright` = `CC1` hold, LEDs hold last position |
+| `Perform` | **Strip → Free** | `CC 51` overridden | Reserved | `Bright` = `CC16` free assignable hold, LEDs hold; 3-way exclusive with Pitch/Mod (`Dim` when inactive) |
+| `Notes` | Gate (arp) | `CC 52` | Reserved | Cycles `ArpMode Up→Down→UpDown→DownUp→Random` `Bright` on press |
+| `Group` | **Page 1-16** | `CC 34` overridden | Reserved | See §4.2 |
+| `Auto` | **Page 17-32** | `CC 35` overridden | Reserved | |
+| `Lock` | **Page 33-48** | `CC 36` overridden | Reserved | |
+| `NoteRepeat` | **Toggle** arp | `CC 37` | Reserved | Toggles `arp_enabled` `Bright` on / `Dim` off |
+| `Restart` | CC | `CC 53` | Sends CC | Free |
+| `Erase` | CC | `CC 54` | Sends CC | Free |
+| `Tap` | CC | `CC 55` | Sends CC | Free |
+| `Follow` | CC | `CC 56` | Sends CC | Free |
+| `Play/Rec/Stop` | CC / Mackie | `CC 57/58/59` | Sends CC or Mackie `Note 94/95/93` if `daw_mackie=true` | |
+| `Shift` | Modifier | – (no CC) | Reserved | Held with `Left/Right` for octave |
+| `FixedVol` | **Toggle** | `CC 80` | Reserved | `Bright` = `127` fixed, `Dim` = velocity |
+| `PadMode` | **Page 49-64 + Gate** | `CC 81` overridden | Reserved | Tap cycles `49-64`, hold+pad selects `49-64`, gate `Bright` held drums `Dim` released |
+| `Keyboard` | CC | `CC 82` | Sends CC | Free |
+| `Chords` | **Toggle** | `CC 84` overridden | Reserved | `Bright` = triads/power (configurable `[chord_types]`), mutually exclusive with `Step` |
+| `Step` | **Toggle** | `CC 83` overridden | Reserved | `Bright` = tetrad `1-3-5-7` for 7-tone / `power+oct` `1-5-8` for non-7, exclusive with `Chords` |
+| `Scene` | **Gate** | `CC 85` | Reserved | Held `Bright` `triad→tetrad` `Dim` off |
+| `Pattern` | **Gate** | `CC 86` | Reserved | `tetrad→triad` |
+| `Events` | **Gate** | `CC 87` | Reserved | `major→minor` (3rd `4→3`, for tetrad also `7th 11→10`) |
+| `Variation` | **Gate** | `CC 88` | Reserved | `minor→major` (`3→4`, `10→11`) |
+| `Duplicate` | **Gate** | `CC 89` | Reserved | `any→5ths` `root+7` |
+| `Select` | **Gate** | `CC 90` | Reserved | `any→5th+oct` `root+7+12` |
+| `Solo` | **Gate** | `CC 91` | Reserved | `+9th` `root+14` additive |
+| `Mute` | **Gate** | `CC 92` | Reserved | `+11th` `root+17` additive |
+| `EncoderPress` | CC | `CC 8` | Sends CC | Encoder itself `CC 7` |
 
-Defaults (`crates/driver/src/settings.rs:195`, mirrored in `example_config.toml:130`):
-
-| Button | CC |
-|--------|----|
-| `Maschine` | 20 |
-| `Star` | 21 |
-| `Browse` | 22 |
-| `Volume` | 23 |
-| `Swing` | 24 |
-| `Tempo` | 25 |
-| `Plugin` | 26 |
-| `Sampling` | 27 |
-| `Left` | 28 |
-| `Right` | 29 |
-| `Pitch` | 30 |
-| `Mod` | 31 |
-| `Perform` | 32 |
-| `Notes` | 33 |
-| `Auto` | 35 |
-| `Lock` | 36 |
-| `NoteRepeat` | 36→ actually 37 (see code) |
-| `FixedVol` | 37 |
-| `PadMode` | 38 |
-| `Keyboard` | 39 |
-| `Chords` | 40 |
-| `Step` | 41 |
-| `Scene` | 42 |
-| `Pattern` | 43 |
-| `Events` | 44 |
-| `Variation` | 45 |
-| `Duplicate` | 46 |
-| `Select` | 47 |
-| `Solo` | 48 |
-| `Mute` | 49 |
-| `EncoderPress` | 50 |
-| `Tap` | 40 (transport) — see note: in example `Tap=40, Follow=41` |
-| `Follow` | 41 |
-| `Play` | 85 |
-| `Rec` | 86 |
-| `Stop` | 87 |
-| `Restart` | 89 |
-| `Erase` | 90 etc. |
-| `Shift` | 88 |
-
-*Exact table in `example_config.toml:130-182`. `Group` is commented out (reserved). Keys are case-insensitive. `EncoderTouch` exists but unmapped by default.*
-
-All on `midi_channel` (0) unless `channel` overridden. Press = `127`, Release = `0` (configurable).
+All gates: `Bright` when held, `Dim` when released, only active when held. Toggles: `Bright` when on, `Dim` when off. Free buttons send CC and can be remapped or repurposed by adding a new check in `main.rs`.
 
 ### 4.4 Encoder
 
-`[encoder] cc=14 mode=relative` on `midi_channel`. HID delta `1`→CW, `0xFF`(-1)→CCW (`crates/driver/src/main.rs:247`) → emits `CC14=1` or `127` per tick (steps repeated for larger deltas). Set `mode=absolute` for absolute `0–127`.
+`[encoder] cc=7 mode=relative` on `midi_channel`. HID delta `1`→CW, `0xFF`(-1)→CCW → emits `CC7=1` or `127` per tick. `mode=absolute` for `0–127`. `should_handle_encoder_rotation` filters to `±1/±2`.
 
-Pushing the encoder also emits `EncoderPress` button CC `102`.
+### 4.5 Touch Strip (Slider) — 3-Way Exclusive
 
-### 4.5 Touch Strip (Slider)
+`[slider] cc=1 mode=absolute` on `midi_channel` (but driver overrides).
 
-`[slider] cc=1 mode=absolute` on `midi_channel`. Raw `1–200` → `0–127` (`crates/driver/src/main.rs:294`). 25 LEDs follow position (`crates/driver/src/main.rs:446`). Alternative: `mode=pitchbend` → 14-bit bend centered at `8192`.
+* **Pitch** `Bright` → `PitchBend` on `pad_channel` + mirror to `midi_channel`, `0..16383` (`val*16383/127`), center `8192` on finger lift, 25 LEDs dim on release (spring).
+* **Mod** `Bright` → `CC1` modwheel on `midi_channel`, hold last value, LEDs hold last position (manual reset).
+* **Perform** `Bright` → `CC16` free assignable on `midi_channel`, hold, LEDs hold. Inactive modes `Dim`. Exactly one `Bright`.
+
+Raw `1–200` → `0–127`.
+
+### 4.6 Transpose
+
+`[transpose] semitone_up="Right" +1, semitone_down="Left" -1, Shift+Left/Right ±12 octave`, clamped `−48..+48`, shifts pad notes (including chords). `Left/Right` LEDs `Bright` on press `Dim` on release. `Shift` is modifier.
+
+### 4.7 Chords / Scales
+
+48 scales (Chromatic … Romanian Minor + Drums 1-16) base `C1=24` 2 octaves, per-page `pad_pages` 16 notes driver-permuted `[13,14,15,16,12,11,10,9,8,7,6,5,1,2,3,4]` → `phys` sequential. `triad_for_pad` derives intervals from all 16 notes `mod12` sorted.
+
+* **Chords toggle** `Bright`: 7-tone → `triad 1-3-5` (`root, third+2, fifth+4` degrees), non-7 → `power root+7`, configurable via `[chord_types]` `Chromatic="power"`, `Major="triad"` or `"tetrad"` (`1-3-5-7`).
+* **Step toggle** `Bright`: 7-tone → `tetrad 1-3-5-7` (via `tetrad` override), non-7 → `power+oct 1-5-8` (`root,fifth,octave`). Mutually exclusive with `Chords`.
+* **Gate modifiers** (held): `Scene` `triad→tetrad`, `Pattern` `tetrad→triad`, `Events` `major→minor` (and 7th `11→10` for tetrad), `Variation` `minor→major` (`10→11`), `Duplicate` `any→5ths`, `Select` `any→5th+oct`, `Solo` `+9th`, `Mute` `+11th`. All momentary, sorted/deduped.
+
+### 4.8 Arpeggiator
+
+* `NoteRepeat` toggle `Bright` = `arp_enabled`. `Notes` cycles `Up→Down→UpDown→DownUp→Random`.
+* `Maschine` (when arp on) = faster (next pure fraction), `Star` = slower (18 fractions `3/4 … 1/96` grouped descending, `3/4,1/2,3/8,1/3...`).
+* `Sampling` cycles `arp_octaves 1→4` (cyclic `C1 G1 C2 G2…` for Up).
+* `Swing` cycles `Straight 50 → Light 55 → Medium 60 → Triplet 66.7` — interval `long=rate*swing/50`, `short=rate*(100-swing)/50`, alternated via `arp_pos%2` preserving average.
+* Held pads arpeggiated as single notes or triads (if `Chords` on), with octave expansion cyclic, `Random` via `DefaultHasher`. `Chords`/`Step` + gates also affect `held_arp_notes`.
+
+### 4.9 Fixed Velocity
+
+`FixedVol` toggle `Bright` = `127`, `Dim` = velocity `max(1,val>>5)`.
 
 ---
 
@@ -208,62 +230,74 @@ pad_channel  = 9
 ### 5.2 Pads
 
 ```toml
-# single kit (legacy):
-notemaps = [36,38,42,46,49,51,44,45,48,50,52,53,37,39,41,43]
-
-# or multi-page (preferred):
+# 64 pages max (48 scales +16 drums) — example has 64
 pad_pages = [
-  [36,38,42,46,43,47,49,51,37,39,44,45,48,50,52,53],
-  [60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75],
+  [36,38,42,46,...], # 0: Chromatic
+  ... # 1-47 scales
+  [36,38,42,46,...], # 48: Drums 1
 ]
-pad_page_button = "PadMode"   # use PadMode to switch
-pad_page_hold_select = false   # cycle only
-pad_aftertouch = "channel"     # or "poly" / "cc" / "off"
+pad_page_button = "Group"
+auto_page_button = "Auto"
+lock_page_button = "Lock"  # PadMode is hard-coded for 49-64
+pad_page_hold_select = true
+pad_aftertouch = "poly"     # or "channel" / "cc" / "off"
 
-# colors
-pad_colors = ["Red","Red","Yellow","Yellow", ...] # 16
-pad_page_colors = ["Blue","Green","Yellow","Orange"] # per-page
+scale_names = ["Chromatic","Major",...,"Drums 16"] # 64
+pad_page_colors = ["Red","Orange",...,"White"] # 64
+
+[chord_types]
+Chromatic = "power"
+Major = "triad" # or "tetrad"
 ```
 
 Colors: `Off, Red, Orange, LightOrange, WarmYellow, Yellow, Lime, Green, Mint, Cyan, Turquoise, Blue, Plum, Violet, Purple, Magenta, Fuchsia, White` (`crates/maschine_library/src/lights.rs:14`).
+
+Validation: `pad_pages` 1-64 entries, each 16 notes `0-127`; `pad_page_colors` 64 if present.
 
 ### 5.3 Buttons
 
 ```toml
 [buttons]
-Play  = { type = "cc", cc = 94, channel = 0 }          # CC
-Stop  = { type = "note", note = 60, channel = 1 }      # Note C4
-Scene = { type = "pc", cc = 10 }                       # Program change
-Mute  = { type = "off" }                               # disable MIDI, LED only
-FixedVol = { type = "cc", cc = 7, value_press = 100, value_release = 0 }
+Play  = { type = "cc", cc = 94, channel = 0 }
+Stop  = { type = "note", note = 60, channel = 1 }
+Scene = { type = "pc", cc = 10 }
+Mute  = { type = "off" }
 ```
 
-Keys = exact names in `crates/maschine_library/src/controls.rs:4` (`Maschine, Star, Browse, ... , EncoderPress, EncoderTouch`). Case-insensitive. Unlisted buttons keep defaults; set `type="off"` to mute.
+Keys = exact names in `crates/maschine_library/src/controls.rs:4` (`Maschine, Star, Browse, ... , EncoderPress, EncoderTouch`). Case-insensitive. Unlisted keep defaults; `type="off"` to mute. Reserved buttons (paging, strip, transpose, chords, arp, gates) won’t send MIDI even if configured.
 
-### 5.4 Encoder / Strip
+### 5.4 Encoder / Strip / Transpose
 
 ```toml
 [encoder]
-cc = 16
+cc = 7
 channel = 0
 mode = "relative"  # or "absolute"
 
 [slider]
-cc = 11
-mode = "pitchbend" # or "absolute" / "relative"
+cc = 1
+mode = "absolute" # or "pitchbend" / "relative" (overridden by Pitch/Mod/Perform)
+
+[transpose]
+semitone_up = "Right"
+semitone_down = "Left"
+octave_up = ""
+octave_down = ""
+reset = ""
 ```
 
 ---
 
 ## 6. LEDs & Screen
 
-* **Pad press** → `Blue` `Normal` on hit, `Off` on release (`crates/driver/src/main.rs:497`). Override via `pad_colors` / `pad_page_colors`.
-* **Button press** → `Normal` / `Off`.
-* **Strip** → 25-LED bar: head=`Normal`, trail=`Dim`.
-* **Page change** → all pads show selector (`Bright` = current, `Dim` = other pages, `Off` beyond count) + screen `n/total` (`crates/driver/src/main.rs:583`).
-* **Self-test** on launch — ignore; driver is ready when screen shows `1/8`.
+* **Pad press** → `Normal` on hit, `Dim` on release. Override via `pad_colors` / `pad_page_colors`.
+* **Button press** → Toggles `Bright`/`Dim` (3-way strip `Dim` inactive), gates `Bright` held/`Dim` released.
+* **Strip** → 25-LED bar: `Pitch` spring dim on release, `Mod`/`Free` hold last position.
+* **Page change** → all pads selector `Bright` current vs `Dim` others for 700 ms, screen `n/64`.
+* **Arp on** → screen shows `arp_rate` (`1/16` etc.) + `x octaves`, transpose hidden; arp off shows `n/64`.
+* **Self-test** on launch — ignore; ready when screen shows `1/64`.
 
-Brightness levels: `Off=0x00, Dim=0x7c, Normal=0x7e, Bright=0x7f` (`crates/maschine_library/src/lights.rs:6`).
+Brightness: `Off=0x00, Dim=0x7c, Normal=0x7e, Bright=0x7f` (`lights.rs:6`).
 
 ---
 
@@ -271,31 +305,33 @@ Brightness levels: `Off=0x00, Dim=0x7c, Normal=0x7e, Bright=0x7f` (`crates/masch
 
 | Symptom | Fix |
 |---------|-----|
-| `Config validation failed` | Follow error (e.g., `notemaps should be 16 pads`, `cc should be 0–127`). `cargo run -- -c my.toml` prints parsed settings before failure. |
-| `No such file or directory /dev/hidraw` or `open VI 0x17cc PID 0x1700 failed` | Check USB, `lsusb \| grep 17cc:1700`; re-apply `98-maschine.rules` + `udevadm trigger`; unplug/re-plug; check you’re not in Maschine software that grabs HID. |
+| `Config validation failed` | Follow error (e.g., `pad_pages should be 64`, `cc 0–127`). Prints parsed settings before failure. |
+| `No such file or directory /dev/hidraw` or `open VI 0x17cc PID 0x1700 failed` | Check USB, `lsusb \| grep 17cc:1700`; re-apply `98-maschine.rules` + `udevadm trigger`; unplug/re-plug. |
 | No MIDI port in DAW | Check backend — ALSA vs JACK is compile-time (`--features jack`). For JACK, start JACK before driver. Check `aconnect -l` (ALSA) or `jack_lsp`. |
-| Pads always same notes | You’re paging? See §4.2. Verify `pad_pages` length >1 and `pad_page_button` not empty. Screen should change. Check logs `Pad page selected → n/m`. |
-| `Group` doesn’t send MIDI | It’s the paging button — reserved when `pad_pages.len()>1`. Set `pad_page_button=""` or map a different button. |
-| Encoder feels inverted | `mode=relative` emits `1` CW / `127` CCW; some DAWs expect `65/63`. Swap in DAW mapping or file an issue with a `raw` log (`Encoder: ...` line). |
-| Strip is jumpy / LEDs flicker | Raw range `1–200` scaled to `0–127`; touching near edge is normal. Use `mode=pitchbend` for smoother DAW mapping. |
+| Pads always same notes | Paging? Verify `pad_pages` len 64 and `pad_page_button` not empty. Screen should change. Check logs `Pad page selected → n/m`. |
+| `Group` doesn’t send MIDI | It’s paging button — reserved when `pad_pages.len()>1`. Set `pad_page_button=""` or map different button. Same for `Auto`/`Lock`/`PadMode`/`Left`/`Right`/`Pitch`/`Mod`/`Perform`/`Chords`/`Step`/gates/arp. |
+| Encoder feels inverted | `mode=relative` emits `1` CW / `127` CCW; some DAWs expect `65/63`. Swap in DAW mapping or log `Encoder: ...`. |
+| Strip is jumpy / LEDs flicker | Raw `1–200` scaled to `0–127`; touching near edge is normal. `Pitch` spring vs `Mod`/`Free` hold is intentional. |
+| PadMode doesn’t go to drums | Requires `pad_pages` 64 and `total_pages>48`. Hold `PadMode` + tap pad `0` → `49`, tap `PadMode` alone cycles `49→50…`. Check logs `Pad page selected via PadMode`. |
 
-Logs: driver prints every `Button press/release`, `Pad idx: NoteOn @ vel (page n)`, `Encoder rel delta`, `Slider -> CC` (`crates/driver/src/main.rs:367/439`). Pipe to `& tee` for debugging.
+Logs: driver prints `Button press/release`, `Pad idx: NoteOn @ vel (page n)`, `Encoder rel delta`, `Slider -> CC/PitchBend`, `Pad page selected`, `Strip mode ->`, `Arp ->`, `Swing ->`, `Transpose ->` (`main.rs`).
 
 ---
 
 ## 8. Windows Parity Notes
 
-* Windows Controller Editor → **Group + Pad** to change pad pages: replicated as `pad_pages` + `Group + Pad`.
-* NI’s “Pages” tab knob pages don’t exist on Mikro MK3 — only pad pages. This driver therefore has no separate knob pages (change encoder CC via config instead).
-* LED colors and brightness match firmware capabilities (4 levels) — color per pad/page is now configurable where Windows only allowed fixed-blue in MIDI mode.
+* Windows Controller Editor → **Group + Pad** to change pad pages: replicated as `Group+Pad` (1-16), `Auto+Pad` (17-32), `Lock+Pad` (33-48), `PadMode+Pad` (49-64).
+* NI’s “Pages” tab knob pages don’t exist on Mikro MK3 — only pad pages. This driver has no separate knob pages (change encoder CC via config).
+* LED colors and brightness match firmware capabilities (4 levels) — color per page is now configurable where Windows only allowed fixed-blue in MIDI mode.
+* Additional performance features (scales, chords, arp, swing, gates, transpose, strip modes) are Linux-only extensions.
 
 ---
 
 ## 9. File Map
 
-* `example_config.toml` — annotated template (copy me).
-* `crates/driver/src/settings.rs` — schema + validation (sources of truth for ranges).
-* `crates/driver/src/main.rs:323` — `main_loop` (HID `0x01` buttons, `0x02` pads, `buf[7]` encoder, `buf[10]` strip).
+* `example_config.toml` — annotated template (64 pages, copy me).
+* `crates/driver/src/settings.rs` — schema + validation (max 64 pages).
+* `crates/driver/src/main.rs` — `main_loop` (HID `0x01` buttons, `0x02` pads, `buf[7]` encoder, `buf[10]` strip, gates/arp).
 * `crates/maschine_library/src/controls.rs` — button enum + `PadEventType`.
 * `crates/maschine_library/src/lights.rs` — `PadColors/Brightness`.
 * `98-maschine.rules` — udev.
@@ -310,7 +346,6 @@ Logs: driver prints every `Button press/release`, `Pad idx: NoteOn @ vel (page n
 pad_pages = [
   [48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63], # C2
   [60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75], # C3
-  [72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87], # C4
 ]
 pad_page_button = "Keyboard"
 ```
@@ -331,6 +366,10 @@ pad_page_button = ""
 [buttons]
 Group = { type = "cc", cc = 34 }
 ```
+
+**Free strip assignable via Perform:**
+
+Press `Perform` `Bright` → strip sends `CC16` hold (map in DAW), `Pitch`/`Mod` `Dim`. Press `Pitch`/`Mod` to return.
 
 ---
 

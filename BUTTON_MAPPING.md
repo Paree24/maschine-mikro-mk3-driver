@@ -1,103 +1,72 @@
 # Maschine Mikro MK3 — Button → Functionality Mapping
 
 > Track what is currently mapped, what is free, and what could be added.  
-> Driver: `crates/maschine_library/src/controls.rs:4` (`Buttons` 0–40) + `crates/driver/src/main.rs` + `example_config.toml`.
+> Driver: `crates/maschine_library/src/controls.rs:4` (`Buttons` 0–40) + `crates/driver/src/main.rs` + `example_config.toml` (64 pages).
 
 ## Legend
 
-* **Reserved (driver)** — button is intercepted by driver, does not send MIDI CC (used for paging, transpose, strip toggle, chords, etc.). Change via `example_config.toml` `[transpose]`, `pad_page_button`, `auto_page_button` or code.
+* **Reserved (driver)** — button is intercepted by driver, does not send MIDI CC (used for paging, transpose, strip, chords, arp, gates). Change via `example_config.toml` or code.
 * **Sends CC** — button sends MIDI CC (configurable in `[buttons]`), free to map in DAW.
-* **Free** — not mapped in `example_config.toml`; driver falls back to defaults (`crates/driver/src/settings.rs:237`) but still sends CC, or `type = "off"` to disable.
+* **Gate/Toggle** — `Gate` = `Bright` when held `Dim` when released (only active when held); `Toggle` = `Bright` when on `Dim` when off.
 
 ---
 
 ## Current Mapping (as shipped in `example_config.toml` + hard-coded driver logic)
 
-| # | Button | Driver Reserved | MIDI CC (example_config) | Status | Notes |
-|---|--------|-----------------|--------------------------|--------|-------|
-| 0 | **Maschine** | – | `CC 38` | Sends CC | Free for DAW; could be `Shift` modifier for alt paging |
-| 1 | **Star** | – | `CC 39` | Sends CC | Free |
-| 2 | **Browse** | – | `CC 40` | Sends CC | Could open browser / plugin picker |
-| 3 | **Volume** | – | `CC 44` | Sends CC | Free |
-| 4 | **Swing** | – | `CC 46` | Sends CC | Free |
-| 5 | **Tempo** | – | `CC 48` | Sends CC | Free; *suggested: tap-tempo* |
-| 6 | **Plugin** | – | `CC 45` | Sends CC | Free |
-| 7 | **Sampling** | – | `CC 47` | Sends CC | Free |
-| 8 | **Left** | **Transpose −1 semitone** (`Right` = +1) | – (reserved, no CC) | Reserved | `Shift+Left` = −12 octave (fixed reverse, was `Left=+1` before). Freed from CC. |
-| 9 | **Right** | **Transpose +1 semitone** | – (reserved) | Reserved | `Shift+Right` = +12 octave |
-| 10 | **Pitch** | **Strip → PitchBend** (latched) | `CC 49` overridden | Reserved | Press `Pitch` → strip = `PitchBend` (center on release), `Pitch` LED `Bright`. Original Maschine: toggles strip. Free `Mod` for modwheel. |
-| 11 | **Mod** | **Strip → ModWheel** (latched) | `CC 50` overridden | Reserved | Press `Mod` → strip = `CC1` modwheel, `Mod` LED `Bright`. |
-| 12 | **Perform** | – | `CC 51` | Sends CC | Free |
-| 13 | **Notes** | – | `CC 52` | Sends CC | Free |
-| 14 | **Group** | **Page 1-16** (`Group+Pad`) | `CC 34` overridden | Reserved | `Group` tap cycles `1-16`, hold `Group`+pad `0-15` selects `1-16`. Screen `1/32`. |
-| 15 | **Auto** | **Page 17-32** (`Auto+Pad`) | `CC 35` overridden | Reserved | `Auto` tap cycles `17-32`, hold `Auto`+pad selects `17-32`. Requires `pad_pages` ≥17; 32 is hard limit (`settings.rs:345` `>32`). |
-| 16 | **Lock** | – | `CC 36` | Sends CC | Free |
-| 17 | **NoteRepeat** | – | `CC 37` | Sends CC | Free |
-| 18 | **Restart** | – | `CC 53` | Sends CC | Free |
-| 19 | **Erase** | – | `CC 54` | Sends CC | Free |
-| 20 | **Tap** | – | `CC 55` | Sends CC | Free |
-| 21 | **Follow** | – | `CC 56` | Sends CC | Free; could be `follow playhead` |
-| 22 | **Play** | – | `CC 57` | Sends CC | Free (DAW transport) |
-| 23 | **Rec** | – | `CC 58` | Sends CC | Free (DAW transport) |
-| 24 | **Stop** | – | `CC 59` | Sends CC | Free (DAW transport) |
-| 25 | **Shift** | **Modifier** for `Shift+Left/Right` octave | – (no CC) | Reserved | Held with `Left`/`Right` to get octave transpose. Could also be `Shift+Pad` for alt functions. |
-| 26 | **FixedVol** | – | `CC 80` | Sends CC | Free |
-| 27 | **PadMode** | – | `CC 81` | Sends CC | Free; could be `pad page` alt |
-| 28 | **Keyboard** | – | `CC 82` | Sends CC | Free |
-| 29 | **Chords** | **Chords toggle** (diatonic triads) | `CC 84` overridden | Reserved | Press `Chords` toggles `triads` (`Bright` = triads, `Dim` = single). Uses `pad 1,3,5` for 7-tone, `power` (`root+7`) for non-7 (chromatic/pentatonic) — configurable via `[chord_types]` (see below). Transpose shifts entire triad. |
-| 30 | **Step** | – | `CC 83` | Sends CC | Free |
-| 31 | **Scene** | – | `CC 85` | Sends CC | Free |
-| 32 | **Pattern** | – | `CC 86` | Sends CC | Free |
-| 33 | **Events** | – | `CC 87` | Sends CC | Free |
-| 34 | **Variation** | – | `CC 88` | Sends CC | Free |
-| 35 | **Duplicate** | – | `CC 89` | Sends CC | Free |
-| 36 | **Select** | – | `CC 90` | Sends CC | Free |
-| 37 | **Solo** | – | `CC 91` | Sends CC | Free |
-| 38 | **Mute** | – | `CC 92` | Sends CC | Free |
-| 39 | **EncoderPress** | – | `CC 8` | Sends CC | Free; encoder itself sends `CC 7` (`relative` 1/127) |
-| 40 | **EncoderTouch** | – | disabled (`CC 9` disabled) | Free (disabled) | Could be used for `encoder touch` modifier |
+| # | Button | Type | MIDI CC (example_config) | Status | Notes |
+|---|--------|------|--------------------------|--------|-------|
+| 0 | **Maschine** | Gate (arp) / CC | `CC 38` | **Reserved when arp on** `faster rate`, else CC | Arp `Maschine` = faster (next pure fraction `3/4..1/96`) `Bright` on press |
+| 1 | **Star** | Gate (arp) / CC | `CC 39` | Reserved when arp on `slower rate`, else CC | Arp `Star` = slower |
+| 2 | **Browse** | CC | `CC 40` | Sends CC | Free |
+| 3 | **Volume** | CC | `CC 44` | Sends CC | Free |
+| 4 | **Swing** | **Gate arp swing** | `CC 46` overridden | **Reserved** | Cycles `Straight 50 → Light 55 → Medium 60 → Triplet 66.7` `Bright`/`Dim`, interval `long=rate*swing/50` `short=rate*(100-swing)/50` |
+| 5 | **Tempo** | Gate (arp) / CC | `CC 48` | Reserved when arp on `Bright`, else CC | Free when arp off |
+| 6 | **Plugin** | CC | `CC 45` | Sends CC | Free |
+| 7 | **Sampling** | Gate (arp) | `CC 47` | Reserved when arp on | Cycles `arp_octaves 1→2→3→4→1` `Bright`/`Dim` |
+| 8 | **Left** | **Transpose −1** | – (reserved) | **Reserved** | `Shift+Left` = −12 octave, range `−48..+48`. Freed from CC. |
+| 9 | **Right** | **Transpose +1** | – (reserved) | **Reserved** | `Shift+Right` = +12 |
+| 10 | **Pitch** | **Strip → PitchBend** (3-way) | `CC 49` overridden | **Reserved** | `Bright` = PitchBend `0..16383` center `8192` spring dim on release. 3-way exclusive with Mod/Perform (`Dim` inactive). |
+| 11 | **Mod** | **Strip → ModWheel** | `CC 50` overridden | **Reserved** | `Bright` = `CC1` hold, LEDs hold last position. |
+| 12 | **Perform** | **Strip → Free** | `CC 51` overridden | **Reserved** | `Bright` = `CC16` free assignable hold, LEDs hold. 3-way exclusive. |
+| 13 | **Notes** | Gate (arp) | `CC 52` | **Reserved** | Cycles `ArpMode Up→Down→UpDown→DownUp→Random` `Bright`/`Dim` |
+| 14 | **Group** | **Page 1-16** | `CC 34` overridden | **Reserved** | `Group` tap cycles `1-16`, hold `Group`+pad selects `1-16`. Screen `n/64`. |
+| 15 | **Auto** | **Page 17-32** | `CC 35` overridden | **Reserved** | `Auto` tap cycles `17-32`, hold `Auto`+pad selects `17-32`. Count limited to 16. |
+| 16 | **Lock** | **Page 33-48** | `CC 36` overridden | **Reserved** | `Lock` tap cycles `33-48`, hold `Lock`+pad selects `33-48`. |
+| 17 | **NoteRepeat** | **Toggle arp** | `CC 37` | **Reserved** | `Bright` = `arp_enabled`, `Dim` = off |
+| 18 | **Restart** | CC | `CC 53` | Sends CC | Free |
+| 19 | **Erase** | CC | `CC 54` | Sends CC | Free |
+| 20 | **Tap** | CC | `CC 55` | Sends CC | Free |
+| 21 | **Follow** | CC | `CC 56` | Sends CC | Free |
+| 22 | **Play** | CC / Mackie | `CC 57` | Sends CC or Mackie `Note 94` if `daw_mackie=true` | |
+| 23 | **Rec** | CC / Mackie | `CC 58` | Sends CC or `Note 95` | |
+| 24 | **Stop** | CC / Mackie | `CC 59` | Sends CC or `Note 93` | |
+| 25 | **Shift** | Modifier | – (no CC) | **Reserved** | Held with `Left`/`Right` for octave |
+| 26 | **FixedVol** | **Toggle** | `CC 80` | **Reserved** | `Bright` = `127` fixed, `Dim` = velocity `val>>5` |
+| 27 | **PadMode** | **Page 49-64 + Gate** | `CC 81` overridden | **Reserved** | Tap cycles `49-64` (49th page = index 48), hold `PadMode`+pad selects `49-64` `Bright`/`Dim`; gate: held `Bright` switches pads to drum kit `drum_pages[current_page%16]` |
+| 28 | **Keyboard** | CC | `CC 82` | Sends CC | Free |
+| 29 | **Chords** | **Toggle** | `CC 84` overridden | **Reserved** | `Bright` = triads/power per `[chord_types]` (7-tone `1-3-5`, non-7 `root+7`), exclusive with `Step` |
+| 30 | **Step** | **Toggle** | `CC 83` overridden | **Reserved** | `Bright` = tetrad `1-3-5-7` for 7-tone / `power+oct` `1-5-8` for non-7, exclusive with `Chords` |
+| 31 | **Scene** | **Gate** | `CC 85` overridden | **Reserved** | Held `Bright` `triad→tetrad` `Dim` off |
+| 32 | **Pattern** | **Gate** | `CC 86` overridden | **Reserved** | `tetrad→triad` |
+| 33 | **Events** | **Gate** | `CC 87` overridden | **Reserved** | `major→minor` (3rd `4→3`, tetrad also 7th `11→10`) |
+| 34 | **Variation** | **Gate** | `CC 88` overridden | **Reserved** | `minor→major` (`3→4`, `10→11`) |
+| 35 | **Duplicate** | **Gate** | `CC 89` overridden | **Reserved** | `any→5ths` `root+7` |
+| 36 | **Select** | **Gate** | `CC 90` overridden | **Reserved** | `any→5th+oct` `root+7+12` |
+| 37 | **Solo** | **Gate** | `CC 91` overridden | **Reserved** | `+9th` `root+14` additive, sorts/dedups |
+| 38 | **Mute** | **Gate** | `CC 92` overridden | **Reserved** | `+11th` `root+17` additive |
+| 39 | **EncoderPress** | CC | `CC 8` | Sends CC | Encoder itself `CC 7` `relative` |
 
-**Pads 1-16** (`PadEventType:4`) — `pad_pages` 32 scales (`Chromatic` … `Iwato` + `Up` octave), `Group`/`Auto` paging, `transpose_offset` −48..+48 via `Left`/`Right`, `Chords` triads/power. All pads lit `Blue Normal` by default, `Bright` on press, `Dim` on release (selector `Bright`/`Dim` 700 ms).
+**Pads 1-16** — `pad_pages` 64 scales (`Chromatic` … `Romanian Minor` `0-47` + `Drums 1-16` `48-63`), `Group`/`Auto`/`Lock`/`PadMode` paging, `transpose_offset` `−48..+48`, `Chords`/`Step` + gates (`Scene` etc.) + `Solo`/`Mute` extensions + `arp` + `FixedVol`. Pads `Dim` default, `Normal` on press, `Dim` on release; page selector `Bright`/`Dim` 700 ms.
 
-**Encoder** (`buf[7]`) — `CC 7` `relative` (1 cw / 127 ccw).  
-**Touch Strip** (`buf[10]`) — `PitchBend` (on `pad_channel` + mirror to `midi_channel`, full `0..16383`, center `8192` on release) when `Pitch` latched, else `CC 1` modwheel. 25 LEDs follow position.
+**Encoder** (`buf[7]`) — `CC 7` `relative` (1 cw / 127 ccw) filtered `±1/±2`.  
+**Touch Strip** (`buf[10]`) — `PitchBend` (on `pad_channel` + mirror, `0..16383`, center `8192`) when `Pitch` latched, else `CC1` modwheel / `CC16` free, 25 LEDs follow position (spring vs hold).
 
 ---
 
 ## What is Free?
 
-* **Truly free (no driver logic):** `Maschine`, `Star`, `Browse`, `Volume`, `Swing`, `Tempo`, `Plugin`, `Sampling`, `Perform`, `Notes`, `Lock`, `NoteRepeat`, `Restart`, `Erase`, `Tap`, `Follow`, `Play/Rec/Stop`, `FixedVol`, `PadMode`, `Keyboard`, `Step`, `Scene`, `Pattern`, `Events`, `Variation`, `Duplicate`, `Select`, `Solo`, `Mute`, `EncoderPress/Touch` — all send CC and can be remapped in DAW or repurposed in driver by adding a new reserved check in `main.rs:588` (like `Chords`/`Pitch`).
-* **Reserved (driver):** `Group`, `Auto`, `Pitch`, `Mod`, `Left`, `Right`, `Shift` (modifier), `Chords` — do not send MIDI CC when used as configured. Disable by setting `pad_page_button=""`, `auto_page_button=""`, `[transpose] semitone_up=""` etc., or `Pitch`/`Mod` handling in `main.rs:580`.
-
----
-
-## Suggested Driver-Level Functionality (all possible in `main.rs` + `settings.rs`)
-
-> These are not yet mapped, but trivial to add (follow `Transpose`/`Chords` pattern: add `settings.rs` field, `button_debug_name` check, state var, LED, screen).
-
-| Buttons | Suggested Function | Why / How |
-|---------|-------------------|-----------|
-| **Tempo + Tap** | Tap-tempo (avg interval of `Tap` presses → set `Clock` or CC) | Already `Tap`/`Tempo` free, driver can compute BPM and optionally send `MIDI Clock`/`CC` |
-| **Shift + Encoder** | Fine transpose (±1) vs coarse (±12) | Alternative to `Shift+Left/Right` |
-| **Browse + Encoder** | Scale selection (cycle `pad_pages` without `Group`) | `Browse` is free, could be `Browse+Pad` for scale browser |
-| **Perform + Pad** | Quick scale preview (play scale notes) | `Perform` free |
-| **Notes + Pad** | Toggle `pad_aftertouch` `poly`/`channel`/`cc` | `Notes` free |
-| **Solo/Mute + Pad** | Mute/solo per pad (send `CC` per pad or filter) | `Solo`/`Mute` free, driver can filter `NoteOn` |
-| **Select + Pad** | Select drum kit / page color per pad | `Select` free |
-| **Pattern/Scene + Pad** | Direct page jump 1-16/17-32 without `Group`/`Auto` hold | `Pattern`/`Scene` free, could be `Pattern+Pad` → `C0` etc. |
-| **FixedVol** | Toggle velocity fixed 127 vs velocity-sensitive | `FixedVol` free, driver can force `vel=127` when lit |
-| **NoteRepeat + Pad** | Arp rate (1/4, 1/8…) | `NoteRepeat` free |
-| **Lock** | Lock current `transpose`/`chords` state (prevent accidental change) | `Lock` free |
-| **Swing** | Swing amount (CC) via encoder while held | `Swing` free + encoder |
-| **Volume + Slider** | Slider controls volume vs modwheel (like `Pitch`/`Mod` toggle) | `Volume` free |
-| **Maschine/Star** | Shift modifiers for alt layers (e.g. `Maschine+Left` = transpose reset) | `Maschine`/`Star` free, currently `Maschine` is just CC |
-| **EncoderPress** | Reset transpose (`-transpose_offset`) or reset strip to center | Currently `CC 8`, could be `transpose reset` (set `[transpose] reset="EncoderPress"`) |
-| **EncoderTouch** | Momentary pitchbend enable (only bend while touching encoder) | Currently disabled, could be used |
-
-**Already implemented via config, no code change:**
-
-* Any free button → assign any `CC`/`Note`/`PC` in `[buttons]` (e.g. `Left = {type="cc", cc=1}` if you disable `[transpose]`).
-* `Chords` voicing per scale: `[chord_types]` `Chromatic="power"`, `Major="triad"` (default 7-tone triad, non-7 power), set to `"tetrad"` for 7th chords (`1-3-5-7`).
+* **Truly free (no driver logic):** `Browse`, `Volume`, `Plugin`, `Keyboard`, `Restart`, `Erase`, `Tap`, `Follow`, `Play/Rec/Stop` (when `daw_mackie=false`), `EncoderPress/Touch` — all send CC and can be remapped in DAW or repurposed by adding a new check in `main.rs`.
+* **Reserved (driver):** `Group`, `Auto`, `Lock`, `PadMode` (paging + gate), `Pitch`, `Mod`, `Perform` (strip 3-way), `Left`, `Right`, `Shift` (transpose), `Chords`, `Step` (toggles), `Scene`, `Pattern`, `Events`, `Variation`, `Duplicate`, `Select`, `Solo`, `Mute` (gates), `NoteRepeat`, `Notes`, `Maschine`, `Star`, `Sampling`, `Swing` (arp), `FixedVol`, `Tempo` (when arp on). Change via `example_config.toml` or code.
 
 ---
 
@@ -105,7 +74,7 @@
 
 To make `Browse` toggle `fixed velocity`:
 
-1. Add to `settings.rs` `browse_fixed: bool` or just handle in `main.rs` like `Chords`:
+1. Add to `main.rs` like `Chords`:
    ```rust
    } else if status && button == Buttons::Browse {
        fixed_vel = !fixed_vel;
@@ -120,4 +89,4 @@ Same pattern works for any button.
 
 ---
 
-*Last updated: 2026-09-18 — driver `main.rs:580` strip toggle, `transpose` `Left`/`Right` + `Shift` octave, `Chords` triads/power via `[chord_types]`, `Group`/`Auto` 32 pages.*
+*Last updated: 2026-09-18 — driver `main.rs` 64 pages, `PadMode` 49-64, strip 3-way `Pitch/Mod/Perform` (`Dim` inactive), `Left/Right` transpose + `Shift` octave, `Chords`/`Step` + 8 gates, `Solo`/`Mute` +9th/+11th, `NoteRepeat`/`Notes`/`Maschine`/`Star`/`Sampling`/`Swing` arp (18 rates `3/4..1/96`, swing 50/55/60/66.7), `FixedVol`, `Group`/`Auto`/`Lock`/`PadMode` paging.*
