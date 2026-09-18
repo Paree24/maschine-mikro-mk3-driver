@@ -47,8 +47,11 @@ pad_pages = [
 ]
 
 pad_page_button = "Group"
+auto_page_button = "Auto"
 pad_page_hold_select = true
 pad_aftertouch = "poly"
+# Chords: press Chords to toggle diatonic triads (root, third, fifth) of current scale; transpose shifts entire triad
+# Auto+Pad selects pages 17-32 (pad 0->page 17, etc.), Group+Pad selects 1-16; 32 is current hard limit (increase in settings.rs if needed)
 
 # Transpose: Left/Right semitone, Shift+Left/Right octave, Pitch/Mod free for strip toggle
 [transpose]

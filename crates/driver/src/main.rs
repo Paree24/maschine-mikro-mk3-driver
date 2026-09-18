@@ -114,6 +114,61 @@ fn is_pad_page_button(settings: &Settings, button: Buttons) -> bool {
     }
 }
 
+fn is_auto_page_button(settings: &Settings, button: Buttons) -> bool {
+    if let Some(name) = settings.auto_page_button_parsed() {
+        let btn_name = button_debug_name(button);
+        btn_name.eq_ignore_ascii_case(&name)
+    } else {
+        false
+    }
+}
+
+// Build diatonic triad for current scale page: root, third (2 scale degrees up), fifth (4 up)
+// Works for 7-note scales and pentatonic (wraps with octave). Transpose applied afterwards.
+fn triad_for_pad(pad_notes: &[u8], idx: usize, transpose: i32) -> Vec<u8> {
+    if pad_notes.is_empty() || idx >= pad_notes.len() {
+        return vec![];
+    }
+    // Derive scale intervals from first octave of pad_notes (first 7 distinct notes)
+    // For chromatic, intervals are 0..11, but we treat as 12-tone
+    // For scales, derive intervals by sorting first 7 notes relative to base
+    let base = pad_notes[0] as i32;
+    // Build intervals by taking first 7 notes' offsets, sorted
+    let mut intervals: Vec<i32> = Vec::new();
+    for i in 0..pad_notes.len().min(7) {
+        let off = pad_notes[i] as i32 - base;
+        // Only keep 0..11 range for first octave, deduplicate
+        if off >= 0 && off < 12 {
+            if !intervals.contains(&off) {
+                intervals.push(off);
+            }
+        }
+    }
+    intervals.sort_unstable();
+    if intervals.is_empty() {
+        intervals = vec![0,2,4,5,7,9,11];
+    }
+    // For pentatonic (5 notes), intervals len 5, triad still works
+    let n = intervals.len() as i32;
+    let root_deg = idx as i32;
+    let root_oct = root_deg / n;
+    let root_mod = root_deg % n;
+    let third_deg = root_deg + 2;
+    let fifth_deg = root_deg + 4;
+    let third_oct = third_deg / n;
+    let third_mod = third_deg % n;
+    let fifth_oct = fifth_deg / n;
+    let fifth_mod = fifth_deg % n;
+    let root = base + root_oct * 12 + intervals[root_mod as usize];
+    let third = base + third_oct * 12 + intervals[third_mod as usize];
+    let fifth = base + fifth_oct * 12 + intervals[fifth_mod as usize];
+    vec![
+        ((root + transpose).clamp(0,127)) as u8,
+        ((third + transpose).clamp(0,127)) as u8,
+        ((fifth + transpose).clamp(0,127)) as u8,
+    ]
+}
+
 #[derive(Debug, Clone, Copy)]
 enum TransposeAction {
     SemitoneUp,
@@ -401,6 +456,9 @@ fn main_loop(
     let mut current_page: usize = 0;
     let mut pad_page_holding = false;
     let mut page_selected_via_pad = false;
+    let mut auto_page_holding = false;
+    let mut auto_page_selected_via_pad = false;
+    let mut chords_active = false;
     let mut button_prev = [false; 64];
     let norm_map = normalized_button_map(settings);
     let mut transpose_offset: i32 = 0;
@@ -513,14 +571,12 @@ fn main_loop(
                         }
 
                         // Strip mode toggle: Pitch = pitchbend, Mod = modwheel (original Maschine)
-                        // Pressing Pitch makes strip act as pitch bend, Mod as mod wheel (CC1)
                         if status && (button == Buttons::Pitch || button == Buttons::Mod) {
                             let new_is_pitch = button == Buttons::Pitch;
                             if new_is_pitch != strip_is_pitchbend {
                                 strip_is_pitchbend = new_is_pitch;
                                 println!("Strip mode -> {}", if strip_is_pitchbend { "PitchBend" } else { "ModWheel" });
                             }
-                            // Keep LEDs latched to show active mode
                             if lights.button_has_light(Buttons::Pitch) {
                                 lights.set_button(Buttons::Pitch, if strip_is_pitchbend { Brightness::Bright } else { Brightness::Off });
                             }
@@ -529,7 +585,17 @@ fn main_loop(
                             }
                             changed_lights = true;
                         } else if !status && (button == Buttons::Pitch || button == Buttons::Mod) {
-                            // release of Pitch/Mod – keep LED as latched, no MIDI
+                            // release keep latched
+                        } else if status && button == Buttons::Chords {
+                            chords_active = !chords_active;
+                            println!("Chords mode -> {}", if chords_active { "triads" } else { "single" });
+                            if lights.button_has_light(Buttons::Chords) {
+                                lights.set_button(Buttons::Chords, if chords_active { Brightness::Bright } else { Brightness::Dim });
+                            }
+                            changed_lights = true;
+                            let _ = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset);
+                        } else if !status && button == Buttons::Chords {
+                            // keep LED
                         } else if let Some(action) = transpose_action(settings, button) {
                             if status {
                                 let delta = match action {
@@ -558,6 +624,47 @@ fn main_loop(
                                 if lights.button_has_light(button) {
                                     lights.set_button(button, Brightness::Dim);
                                     changed_lights = true;
+                                }
+                            }
+                        } else if is_auto_page_button(settings, button) && total_pages > 16 {
+                            // Auto+Pad for pages 17-32 (index 16..31)
+                            if settings.pad_page_hold_select {
+                                if status {
+                                    auto_page_holding = true;
+                                    auto_page_selected_via_pad = false;
+                                    if lights.button_has_light(button) {
+                                        lights.set_button(button, Brightness::Bright);
+                                        changed_lights = true;
+                                    }
+                                } else {
+                                    auto_page_holding = false;
+                                    if !auto_page_selected_via_pad {
+                                        // cycle within 16.. total_pages-1
+                                        let base = 16;
+                                        let count = total_pages - base;
+                                        if count > 0 {
+                                            let rel = if current_page >= base { current_page - base } else { 0 };
+                                            let next = (rel + 1) % count;
+                                            current_page = base + next;
+                                            page_changed = true;
+                                            println!("Pad page cycled (Auto) -> {}/{}", current_page + 1, total_pages);
+                                        }
+                                    }
+                                    auto_page_selected_via_pad = false;
+                                    if lights.button_has_light(button) {
+                                        lights.set_button(button, Brightness::Dim);
+                                        changed_lights = true;
+                                    }
+                                }
+                            } else if status {
+                                let base = 16;
+                                let count = total_pages - base;
+                                if count > 0 {
+                                    let rel = if current_page >= base { current_page - base } else { 0 };
+                                    let next = (rel + 1) % count;
+                                    current_page = base + next;
+                                    page_changed = true;
+                                    println!("Pad page (Auto) -> {}/{}", current_page + 1, total_pages);
                                 }
                             }
                         } else if is_pad_page_button(settings, button) && total_pages > 1 {
@@ -661,13 +768,12 @@ fn main_loop(
                 };
                 println!("Pad {}: {:?} @ {} (page {})", idx, pad_evt, val, current_page);
 
-                // Hold-select: Group + pad chooses page
+                // Hold-select: Group + pad chooses page (1-16)
                 if pad_page_holding && settings.pad_page_hold_select && total_pages > 1 {
-                    // Only on NoteOn/PressOn (initial hit) to select
                     match pad_evt {
                         PadEventType::NoteOn | PadEventType::PressOn => {
                             let page_idx = idx as usize;
-                            if page_idx < total_pages {
+                            if page_idx < total_pages && page_idx < 16 {
                                 if page_idx != current_page {
                                     current_page = page_idx;
                                     page_changed = true;
@@ -676,9 +782,27 @@ fn main_loop(
                                 } else {
                                     page_selected_via_pad = true;
                                 }
-                                // Light feedback: flash selected pad
                             }
-                            // Don't send MIDI for the page-select pad hit
+                            continue;
+                        }
+                        _ => continue,
+                    }
+                }
+                // Auto+Pad for pages 17-32 (index 16..31)
+                if auto_page_holding && settings.pad_page_hold_select && total_pages > 16 {
+                    match pad_evt {
+                        PadEventType::NoteOn | PadEventType::PressOn => {
+                            let page_idx = 16 + idx as usize;
+                            if page_idx < total_pages {
+                                if page_idx != current_page {
+                                    current_page = page_idx;
+                                    page_changed = true;
+                                    auto_page_selected_via_pad = true;
+                                    println!("Pad page selected via Auto+pad {} -> {}/{}", idx, current_page + 1, total_pages);
+                                } else {
+                                    auto_page_selected_via_pad = true;
+                                }
+                            }
                             continue;
                         }
                         _ => continue,
@@ -727,15 +851,49 @@ fn main_loop(
                 if (idx as usize) >= notes.len() {
                     continue;
                 }
-                let base = notes[idx as usize] as i32;
-                let note = ((base + transpose_offset).clamp(0, 127)) as u8;
                 let mut velocity = (val >> 5) as u8;
                 if val > 0 && velocity == 0 {
                     velocity = 1;
                 }
                 let scaled_vel = velocity.min(127);
-
                 let channel = settings.pad_midi_channel();
+
+                // Chords mode: diatonic triads (root, third, fifth) of the scale
+                if chords_active {
+                    let triad = triad_for_pad(notes, idx as usize, transpose_offset);
+                    match pad_evt {
+                        PadEventType::NoteOn | PadEventType::PressOn => {
+                            for n in triad {
+                                send_midi(port, channel, MidiMessage::NoteOn { key: n.into(), vel: scaled_vel.into() });
+                            }
+                        }
+                        PadEventType::NoteOff | PadEventType::PressOff => {
+                            for n in triad {
+                                send_midi(port, channel, MidiMessage::NoteOff { key: n.into(), vel: scaled_vel.into() });
+                            }
+                        }
+                        PadEventType::Aftertouch => {
+                            // For chords, send poly aftertouch for each triad note if enabled
+                            match settings.pad_aftertouch.as_str() {
+                                "poly" => {
+                                    let triad = triad_for_pad(notes, idx as usize, transpose_offset);
+                                    for n in triad {
+                                        send_midi(port, channel, MidiMessage::Aftertouch { key: n.into(), vel: scaled_vel.into() });
+                                    }
+                                }
+                                "channel" => send_midi(port, channel, MidiMessage::ChannelAftertouch { vel: scaled_vel.into() }),
+                                "cc" => send_midi(port, channel, MidiMessage::Controller { controller: 74u8.into(), value: scaled_vel.into() }),
+                                _ => {}
+                            }
+                        }
+                        #[allow(unreachable_patterns)]
+                        _ => {}
+                    }
+                    continue;
+                }
+
+                let base = notes[idx as usize] as i32;
+                let note = ((base + transpose_offset).clamp(0, 127)) as u8;
 
                 let event_opt: Option<MidiMessage> = match pad_evt {
                     PadEventType::NoteOn | PadEventType::PressOn => Some(MidiMessage::NoteOn {
@@ -755,7 +913,6 @@ fn main_loop(
                             vel: scaled_vel.into(),
                         }),
                         "cc" => {
-                            // Send CC 74 (or 1) with pressure - use CC 74 as generic
                             Some(MidiMessage::Controller {
                                 controller: 74u8.into(),
                                 value: scaled_vel.into(),

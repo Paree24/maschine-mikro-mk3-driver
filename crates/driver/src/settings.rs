@@ -17,6 +17,9 @@ fn default_port_name() -> String {
 fn default_pad_page_button() -> String {
     "Group".to_string()
 }
+fn default_auto_page_button() -> String {
+    "Auto".to_string()
+}
 fn default_encoder_cc() -> u8 {
     14
 }
@@ -171,6 +174,10 @@ pub(crate) struct Settings {
     #[serde(default = "default_pad_page_button")]
     pub pad_page_button: String,
 
+    // Second page button for pages 17-32 (Auto+Pad). Empty to disable.
+    #[serde(default = "default_auto_page_button")]
+    pub auto_page_button: String,
+
     // When true, holding pad_page_button + tapping a pad (0-7) directly selects page
     // like NI Controller Editor (Group + Pad). When false, pressing pad_page_button cycles.
     #[serde(default = "default_hold_select")]
@@ -220,6 +227,7 @@ impl Default for Settings {
             midi_channel: default_midi_channel(),
             pad_channel: default_pad_channel(),
             pad_page_button: default_pad_page_button(),
+            auto_page_button: default_auto_page_button(),
             pad_page_hold_select: true,
             pad_aftertouch: default_aftertouch(),
             pad_colors: None,
@@ -317,6 +325,15 @@ impl Settings {
 
     pub(crate) fn pad_page_button_parsed(&self) -> Option<String> {
         let s = self.pad_page_button.trim();
+        if s.is_empty() {
+            None
+        } else {
+            Some(s.to_string())
+        }
+    }
+
+    pub(crate) fn auto_page_button_parsed(&self) -> Option<String> {
+        let s = self.auto_page_button.trim();
         if s.is_empty() {
             None
         } else {
@@ -449,6 +466,10 @@ impl Settings {
             if !s.is_empty() && Self::parse_button_name(s).is_none() {
                 return Err(format!("{field} = \"{s}\" is not a valid button name"));
             }
+        }
+
+        if !self.auto_page_button.trim().is_empty() && Self::parse_button_name(self.auto_page_button.trim()).is_none() {
+            return Err(format!("auto_page_button = \"{}\" is not a valid button name", self.auto_page_button));
         }
 
         Ok(())
