@@ -507,10 +507,10 @@ fn main_loop(
         }
         let _ = lights.write(device);
     }
-    // Default: all pads and buttons lit (user request) – after self_test they are off
+    // Default: dim by default, normal when pressed (gate)
     {
         for p in 0..16 {
-            lights.set_pad(p, PadColors::Blue, Brightness::Normal);
+            lights.set_pad(p, PadColors::Blue, Brightness::Dim);
         }
         for bid in 0..39 {
             if let Some(btn) = num::FromPrimitive::from_usize(bid) {
@@ -519,8 +519,7 @@ fn main_loop(
                 }
             }
         }
-        // Keep Group bright to indicate page, Pitch/Mod already set above
-        // Slider dim
+        // Keep Pitch/Mod latched as before
         for i in 0..25 {
             lights.set_slider(i, Brightness::Dim);
         }
@@ -534,13 +533,11 @@ fn main_loop(
     loop {
         let size = device.read_timeout(&mut buf, 10)?;
         if size < 1 {
-            // still need to handle selector timeout even without HID data
             if selector_active {
                 if let Some(since) = selector_since {
                     if since.elapsed() > Duration::from_millis(700) {
-                        // restore default lit state (all pads lit)
                         for p in 0..16 {
-                            lights.set_pad(p, PadColors::Blue, Brightness::Normal);
+                            lights.set_pad(p, PadColors::Blue, Brightness::Dim);
                         }
                         lights.write(device)?;
                         selector_active = false;
@@ -551,14 +548,12 @@ fn main_loop(
             continue;
         }
 
-        // selector timeout check also when we have data
         if selector_active {
             if let Some(since) = selector_since {
                 if since.elapsed() > Duration::from_millis(700) {
                     for p in 0..16 {
-                        lights.set_pad(p, PadColors::Blue, Brightness::Normal);
+                        lights.set_pad(p, PadColors::Blue, Brightness::Dim);
                     }
-                    // will be written via changed_lights below
                     lights.write(device)?;
                     selector_active = false;
                     selector_since = None;
@@ -835,16 +830,16 @@ fn main_loop(
                     }
                 }
 
-                // Normal pad handling - keep pads lit normally when not pressed (all lit by default)
+                // Gate: dim by default, normal when pressed, dim when released
                 let (_, prev_b) = lights.get_pad(idx as usize);
                 let b = match pad_evt {
-                    PadEventType::NoteOn | PadEventType::PressOn => Brightness::Bright,
-                    PadEventType::NoteOff | PadEventType::PressOff => Brightness::Normal,
+                    PadEventType::NoteOn | PadEventType::PressOn => Brightness::Normal,
+                    PadEventType::NoteOff | PadEventType::PressOff => Brightness::Dim,
                     PadEventType::Aftertouch => {
                         if val > 0 {
                             Brightness::Normal
                         } else {
-                            Brightness::Normal
+                            Brightness::Dim
                         }
                     }
                     #[allow(unreachable_patterns)]
@@ -957,13 +952,13 @@ fn main_loop(
         }
 
         if page_changed {
-            // Update lights for paging: highlight current page Bright, others Normal (stay lit)
+            // Update lights for paging: current Bright, others Dim (dim by default gate)
             for p in 0..16 {
                 let br = if p < total_pages {
                     if p == current_page {
                         Brightness::Bright
                     } else {
-                        Brightness::Normal
+                        Brightness::Dim
                     }
                 } else {
                     Brightness::Off
