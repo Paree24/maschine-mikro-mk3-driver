@@ -565,11 +565,52 @@ fn main_loop(
         let base: Vec<u8> = vec![36,38,42,46,41,43,45,47,37,39,44,49,51,54,56,59];
         (0..16).map(|p| base.iter().map(|n| (( *n as i32 + (p as i32 * 2) ).clamp(0,127) as u8)).collect()).collect()
     };
+    // 16 extra scales for Keyboard mode (from SCALES repo) - makes 80 total when combined
+    let keyboard_pages: Vec<Vec<u8>> = {
+        // Intervals in semitones from 1P, for 16 selected scales from repo
+        let scales_intervals: Vec<Vec<i32>> = vec![
+            vec![0,2,3,4,7,9],           // major blues
+            vec![0,2,4,5,7,9,10,11],     // bebop
+            vec![0,2,3,5,6,8,9,11],      // diminished whole-half
+            vec![0,2,4,6,7,9,10],        // lydian dominant
+            vec![0,1,3,4,6,8,10],        // altered
+            vec![0,1,3,5,7,9,10],        // dorian b2
+            vec![0,1,3,4,6,8,9],         // ultralocrian
+            vec![0,3,4,5,7,8,11],        // augmented heptatonic
+            vec![0,2,4,6,8,10],          // whole tone
+            vec![0,2,4,5,6,8,10],        // locrian major
+            vec![0,1,4,6,7,8,11],        // double harmonic lydian
+            vec![0,1,4,6,8,10,11],       // enigmatic
+            vec![0,2,4,5,8,9,11],        // major augmented
+            vec![0,1,2,5,6,7,8,11],      // messiaen mode #4
+            vec![0,2,3,4,5,6,7,9,10],    // composite blues
+            vec![0,2,4,6,8,9,11],        // lydian augmented
+        ];
+        let base_note = 24; // C1
+        scales_intervals.iter().map(|intervals| {
+            let n = intervals.len() as i32;
+            let phys: Vec<u8> = (0..16).map(|phys_idx| {
+                let deg = phys_idx as i32;
+                let note = base_note + (deg / n) * 12 + intervals[(deg % n) as usize];
+                note as u8
+            }).collect();
+            // phys -> driver permuted [13,14,15,16,12,11,10,9,8,7,6,5,1,2,3,4]
+            vec![
+                phys[12], phys[13], phys[14], phys[15],
+                phys[8], phys[9], phys[10], phys[11],
+                phys[4], phys[5], phys[6], phys[7],
+                phys[0], phys[1], phys[2], phys[3],
+            ]
+        }).collect()
+    };
     let mut pad_pages = base_pages.clone();
     if pad_pages.len() == 48 {
         pad_pages.extend(drum_pages.clone());
     }
-    let total_pages = pad_pages.len(); // 64 when 48+16
+    if pad_pages.len() == 64 {
+        pad_pages.extend(keyboard_pages.clone());
+    }
+    let total_pages = pad_pages.len(); // 80 when 48+16+16
     let mut current_page: usize = 0;
     let mut pad_page_holding = false;
     let mut page_selected_via_pad = false;
@@ -592,6 +633,9 @@ fn main_loop(
     let mut select_held = false;
     let mut solo_held = false;
     let mut mute_held = false;
+    let mut keyboard_held = false;
+    let mut keyboard_page_holding = false;
+    let mut keyboard_selected_via_pad = false;
     let mut button_prev = [false; 64];
     let norm_map = normalized_button_map(settings);
     #[derive(Clone, Copy, PartialEq, Debug)] enum StripMode { PitchBend, ModWheel, Free }
@@ -1102,6 +1146,83 @@ fn main_loop(
                                 }
                                 println!("PadMode gate -> {}", if status { "on (16 drum pages)" } else { "off" });
                             }
+                        } else if button == Buttons::Keyboard {
+                            // Keyboard gate unlocks 16 extra scales (65-80) like PadMode for drums, plus page button 65-80
+                            keyboard_held = status;
+                            if total_pages > 64 {
+                                if settings.pad_page_hold_select {
+                                    if status {
+                                        keyboard_page_holding = true;
+                                        keyboard_selected_via_pad = false;
+                                        if lights.button_has_light(Buttons::Keyboard) {
+                                            lights.set_button(Buttons::Keyboard, Brightness::Bright);
+                                            changed_lights = true;
+                                        }
+                                        println!("Keyboard gate -> on (16 extra scales 65-80) + hold");
+                                    } else {
+                                        keyboard_page_holding = false;
+                                        if !keyboard_selected_via_pad {
+                                            let base = 64;
+                                            let count = std::cmp::min(16, total_pages - base);
+                                            if count > 0 {
+                                                let next = if current_page < base || current_page >= base + count { 0 } else { (current_page - base + 1) % count };
+                                                current_page = base + next;
+                                                page_changed = true;
+                                                println!("Pad page cycled (Keyboard) -> {}/{} (65th page)", current_page + 1, total_pages);
+                                            }
+                                        }
+                                        keyboard_selected_via_pad = false;
+                                        if lights.button_has_light(Buttons::Keyboard) {
+                                            lights.set_button(Buttons::Keyboard, Brightness::Dim);
+                                            changed_lights = true;
+                                        }
+                                        println!("Keyboard gate -> off");
+                                    }
+                                } else if status {
+                                    let base = 64;
+                                    let count = std::cmp::min(16, total_pages - base);
+                                    if count > 0 {
+                                        let next = if current_page < base || current_page >= base + count { 0 } else { (current_page - base + 1) % count };
+                                        current_page = base + next;
+                                        page_changed = true;
+                                        println!("Pad page (Keyboard) -> {}/{} (65th page)", current_page + 1, total_pages);
+                                    }
+                                    if lights.button_has_light(Buttons::Keyboard) {
+                                        lights.set_button(Buttons::Keyboard, Brightness::Bright);
+                                        changed_lights = true;
+                                    }
+                                } else {
+                                    if lights.button_has_light(Buttons::Keyboard) {
+                                        lights.set_button(Buttons::Keyboard, Brightness::Dim);
+                                        changed_lights = true;
+                                    }
+                                }
+                            } else {
+                                if lights.button_has_light(Buttons::Keyboard) {
+                                    lights.set_button(Buttons::Keyboard, if status { Brightness::Bright } else { Brightness::Dim });
+                                    changed_lights = true;
+                                }
+                                println!("Keyboard gate -> {}", if status { "on (16 extra scales)" } else { "off" });
+                            }
+                        } else if button == Buttons::Browse {
+                            // Browse resets arp to 1/16th
+                            if status {
+                                arp_rate = Duration::from_secs_f32(60.0/120.0 * 0.25);
+                                arp_rate_name = "1/16".to_string();
+                                println!("Browse -> arp reset to 1/16");
+                                if lights.button_has_light(Buttons::Browse) {
+                                    lights.set_button(Buttons::Browse, Brightness::Bright);
+                                    changed_lights = true;
+                                }
+                                if arp_enabled {
+                                    let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
+                                }
+                            } else {
+                                if lights.button_has_light(Buttons::Browse) {
+                                    lights.set_button(Buttons::Browse, Brightness::Dim);
+                                    changed_lights = true;
+                                }
+                            }
                         } else if button == Buttons::Scene {
                             scene_held = status;
                             if lights.button_has_light(Buttons::Scene) {
@@ -1447,6 +1568,26 @@ fn main_loop(
                         _ => continue,
                     }
                 }
+                // Keyboard+Pad for extra scales 64-79 (65-80) - gate unlocks 16 more scales
+                if keyboard_page_holding && settings.pad_page_hold_select && total_pages > 64 {
+                    match pad_evt {
+                        PadEventType::NoteOn | PadEventType::PressOn => {
+                            let page_idx = 64 + idx as usize;
+                            if page_idx < total_pages {
+                                if page_idx != current_page {
+                                    current_page = page_idx;
+                                    page_changed = true;
+                                    keyboard_selected_via_pad = true;
+                                    println!("Pad page selected via Keyboard+pad {} -> {}/{} (65th page)", idx, current_page + 1, total_pages);
+                                } else {
+                                    keyboard_selected_via_pad = true;
+                                }
+                            }
+                            continue;
+                        }
+                        _ => continue,
+                    }
+                }
                 // Hold-select: Group + pad chooses page (1-16)
                 if pad_page_holding && settings.pad_page_hold_select && total_pages > 1 {
                     match pad_evt {
@@ -1510,7 +1651,7 @@ fn main_loop(
 
                 if arp_enabled {
                     // Arp arpeggiates held notes; respect PadMode drum pages and gate modifiers
-                    let arp_notes_src: &Vec<u8> = if padmode_held { &drum_pages[current_page % drum_pages.len()] } else { &pad_pages[current_page] };
+                    let arp_notes_src: &Vec<u8> = if keyboard_held { &keyboard_pages[current_page % keyboard_pages.len()] } else if padmode_held { &drum_pages[current_page % drum_pages.len()] } else { &pad_pages[current_page] };
                     let mut base_notes: Vec<u8> = if chords_active {
                         let scale_name = settings.scale_names.get(current_page).map(|s| s.as_str());
                         triad_for_pad(arp_notes_src, idx as usize, transpose_offset, scale_name, &settings.chord_types)
@@ -1616,8 +1757,10 @@ fn main_loop(
                     changed_lights = true;
                 }
 
-                // Resolve note for current page with transpose - PadMode gate unlocks 16 fresh drum pages
-                let notes: &Vec<u8> = if padmode_held {
+                // Resolve note for current page with transpose - Keyboard/PadMode gates unlock extra pages
+                let notes: &Vec<u8> = if keyboard_held {
+                    &keyboard_pages[current_page % keyboard_pages.len()]
+                } else if padmode_held {
                     &drum_pages[current_page % drum_pages.len()]
                 } else {
                     &pad_pages[current_page]

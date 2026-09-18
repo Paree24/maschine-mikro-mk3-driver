@@ -400,8 +400,8 @@ impl Settings {
             if pages.is_empty() {
                 return Err("pad_pages must contain at least one page".to_string());
             }
-            if pages.len() > 64 {
-                return Err("pad_pages supports at most 64 pages".to_string());
+            if pages.len() > 80 {
+                return Err("pad_pages supports at most 80 pages".to_string());
             }
             for (idx, page) in pages.iter().enumerate() {
                 if page.len() != 16 {
