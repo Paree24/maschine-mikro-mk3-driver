@@ -38,7 +38,7 @@ Note that you can use your custom config with own notemappings and other setting
 cargo run --release -- -c example_config.toml
 ```
 
-> **New:** Full mapping + pages are now configurable. See **[USER_GUIDE.md](USER_GUIDE.md)** for the complete mapping tables, pad pages (Group+Pad like on Windows), buttons/encoder/strip config, LED colors and troubleshooting.
+> **New:** Full mapping + pages are now configurable. See **[USER_GUIDE.md](USER_GUIDE.md)** for mapping tables, pad pages (Group+Pad like on Windows), buttons/encoder/strip config, and **[BUTTON_MAPPING.md](BUTTON_MAPPING.md)** for button→functionality & free buttons.
 
 **Important note about MIDI backends:** By default, ALSA backend is used to create virtual MIDI port. If you need Jack backend, please use this command instead:
 ```shell
