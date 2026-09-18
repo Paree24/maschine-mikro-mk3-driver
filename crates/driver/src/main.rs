@@ -595,7 +595,7 @@ fn main_loop(
     let mut selector_active = false;
     let mut selector_since: Option<Instant> = None;
 
-    // Init Pitch/Mod/Perform LEDs to reflect strip mode - 3-way exclusive, exactly one Bright
+    // Init Pitch/Mod/Perform LEDs to reflect strip mode - 3-way exclusive, exactly one Bright, others Off
     {
         if lights.button_has_light(Buttons::Pitch) {
             lights.set_button(Buttons::Pitch, if strip_mode == StripMode::PitchBend { Brightness::Bright } else { Brightness::Off });
@@ -604,7 +604,7 @@ fn main_loop(
             lights.set_button(Buttons::Mod, if strip_mode == StripMode::ModWheel { Brightness::Bright } else { Brightness::Off });
         }
         if lights.button_has_light(Buttons::Perform) {
-            lights.set_button(Buttons::Perform, if strip_mode == StripMode::Free { Brightness::Bright } else { Brightness::Dim });
+            lights.set_button(Buttons::Perform, if strip_mode == StripMode::Free { Brightness::Bright } else { Brightness::Off });
         }
         let _ = lights.write(device);
     }
@@ -818,7 +818,7 @@ fn main_loop(
                             }
                             if lights.button_has_light(Buttons::Pitch) { lights.set_button(Buttons::Pitch, Brightness::Bright); }
                             if lights.button_has_light(Buttons::Mod) { lights.set_button(Buttons::Mod, Brightness::Off); }
-                            if lights.button_has_light(Buttons::Perform) { lights.set_button(Buttons::Perform, Brightness::Dim); }
+                            if lights.button_has_light(Buttons::Perform) { lights.set_button(Buttons::Perform, Brightness::Off); }
                             changed_lights = true;
                         } else if status && button == Buttons::Mod {
                             if strip_mode != StripMode::ModWheel {
@@ -830,7 +830,7 @@ fn main_loop(
                             }
                             if lights.button_has_light(Buttons::Pitch) { lights.set_button(Buttons::Pitch, Brightness::Off); }
                             if lights.button_has_light(Buttons::Mod) { lights.set_button(Buttons::Mod, Brightness::Bright); }
-                            if lights.button_has_light(Buttons::Perform) { lights.set_button(Buttons::Perform, Brightness::Dim); }
+                            if lights.button_has_light(Buttons::Perform) { lights.set_button(Buttons::Perform, Brightness::Off); }
                             changed_lights = true;
                         } else if !status && (button == Buttons::Pitch || button == Buttons::Mod) {
                             // release keep latched
@@ -986,7 +986,7 @@ fn main_loop(
                             }
                             if lights.button_has_light(Buttons::Pitch) { lights.set_button(Buttons::Pitch, if strip_mode == StripMode::PitchBend { Brightness::Bright } else { Brightness::Off }); }
                             if lights.button_has_light(Buttons::Mod) { lights.set_button(Buttons::Mod, if strip_mode == StripMode::ModWheel { Brightness::Bright } else { Brightness::Off }); }
-                            if lights.button_has_light(Buttons::Perform) { lights.set_button(Buttons::Perform, if strip_mode == StripMode::Free { Brightness::Bright } else { Brightness::Dim }); }
+                            if lights.button_has_light(Buttons::Perform) { lights.set_button(Buttons::Perform, if strip_mode == StripMode::Free { Brightness::Bright } else { Brightness::Off }); }
                             changed_lights = true;
                         } else if !status && button == Buttons::Perform {
                             // keep LED latched (3-way toggle: release does not change mode)
@@ -1207,8 +1207,18 @@ fn main_loop(
                     lights.set_slider(i as usize, b);
                 }
                 changed_lights = true;
-                let is_pb = strip_mode == StripMode::PitchBend;
-                handle_slider(port, settings, slider_val, is_pb);
+                match strip_mode {
+                    StripMode::PitchBend => handle_slider(port, settings, slider_val, true),
+                    StripMode::ModWheel => handle_slider(port, settings, slider_val, false),
+                    StripMode::Free => {
+                        // Free assignable CC - distinct from ModWheel CC1, use CC16 on midi_channel for DAW learn
+                        let ch = settings.effective_channel(settings.slider.channel);
+                        let scaled = ((slider_val as u16 * 127) / 200).min(127) as u8;
+                        let cc: u8 = 16; // free CC, not 1 (ModWheel), assignable
+                        println!("Slider Free -> CC {} ch {} val {} raw {}", cc, ch, scaled, slider_val);
+                        send_midi(port, ch, MidiMessage::Controller { controller: cc.into(), value: scaled.into() });
+                    }
+                }
                 prev_slider_touched = true;
             } else if prev_slider_touched {
                 if arp_enabled {
