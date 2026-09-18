@@ -487,19 +487,13 @@ impl ArpMode {
 // Strip -> arp rate: 1/1 .. 1/64 with dotted/triplet at appropriate positions
 // 25 LED positions -> map to 19 rates (slow->fast) plus repeats at ends
 fn arp_rate_from_strip(raw: u8) -> (String, Duration) {
-    // raw 1..200 -> 0..127 scaled already, but we get raw 1..200 directly
-    // Map raw 0..200 to index 0..18
-    let idx = ((raw as usize * 19) / 201).min(18);
-    // Rates defined as (name, beats) where beats = quarter notes per step
-    // 1/1 = 4 beats, 1/2 =2, 1/4=1, 1/8=0.5, 1/16=0.25, 1/32=0.125, 1/64=0.0625
-    // Dotted = *1.5, Triplet = *2/3
+    let idx = ((raw as usize * 18) / 201).min(17);
     const RATES: &[(&str, f32)] = &[
-        ("1/1", 4.0), ("1/2", 2.0), ("1/2.", 3.0), ("1/2T", 1.333), ("1/4", 1.0), ("1/4.", 1.5), ("1/4T", 0.666),
-        ("1/8", 0.5), ("1/8.", 0.75), ("1/8T", 0.333), ("1/16", 0.25), ("1/16.", 0.375), ("1/16T", 0.166),
-        ("1/32", 0.125), ("1/32.", 0.1875), ("1/32T", 0.0833), ("1/64", 0.0625), ("1/64.", 0.09375), ("1/64T", 0.0417),
+        ("3/8", 1.5), ("1/2", 2.0), ("1/3", 1.333), ("3/16", 0.75), ("1/4", 1.0), ("1/6", 0.666),
+        ("3/32", 0.375), ("1/8", 0.5), ("1/12", 0.333), ("3/64", 0.1875), ("1/16", 0.25), ("1/24", 0.166),
+        ("3/128", 0.09375), ("1/32", 0.125), ("1/48", 0.0833), ("3/256", 0.046875), ("1/64", 0.0625), ("1/96", 0.0417),
     ];
     let (name, beats) = RATES[idx];
-    // BPM 120 default, 24 PPQ clock not needed for internal sleep
     let bpm = 120.0;
     let secs = 60.0 / bpm * beats;
     (name.to_string(), Duration::from_secs_f32(secs))
@@ -548,14 +542,13 @@ fn handle_slider(port: &mut MidiOutputConnection, settings: &Settings, raw: u8, 
         }
 }
 
-// Arpeggiator: NoteRepeat toggles on/off, Notes cycles 5 modes, strip controls rate when arp enabled (else pitch/mod)
-// Rates from 1/1 to 1/64 with dotted/triplet at appropriate strip positions
+// Arpeggiator: NoteRepeat toggles on/off, Notes cycles 5 modes, encoder controls rate when arp enabled
 fn arp_rate_from_strip_raw(raw: u8) -> (String, Duration) {
-    let idx = ((raw as usize * 19) / 201).min(18);
+    let idx = ((raw as usize * 18) / 201).min(17);
     const RATES: &[(&str, f32)] = &[
-        ("1/1", 4.0), ("1/2", 2.0), ("1/2.", 3.0), ("1/2T", 1.333), ("1/4", 1.0), ("1/4.", 1.5), ("1/4T", 0.666),
-        ("1/8", 0.5), ("1/8.", 0.75), ("1/8T", 0.333), ("1/16", 0.25), ("1/16.", 0.375), ("1/16T", 0.166),
-        ("1/32", 0.125), ("1/32.", 0.1875), ("1/32T", 0.0833), ("1/64", 0.0625), ("1/64.", 0.09375), ("1/64T", 0.0417),
+        ("3/8", 1.5), ("1/2", 2.0), ("1/3", 1.333), ("3/16", 0.75), ("1/4", 1.0), ("1/6", 0.666),
+        ("3/32", 0.375), ("1/8", 0.5), ("1/12", 0.333), ("3/64", 0.1875), ("1/16", 0.25), ("1/24", 0.166),
+        ("3/128", 0.09375), ("1/32", 0.125), ("1/48", 0.0833), ("3/256", 0.046875), ("1/64", 0.0625), ("1/96", 0.0417),
     ];
     let (name, beats) = RATES[idx];
     let bpm = 120.0;
@@ -1093,16 +1086,11 @@ fn main_loop(
             if encoder_val != 0 && should_handle_encoder_rotation(encoder_val) {
                 if arp_enabled {
                     let delta = encoder_val as i8;
-                    // Grouped per user: 1/2.,1/2,1/2T,1/4.,1/4,1/4T... so Up/Right goes to next in group, not monotonic beats
-                    // More sensitive: each tick = 1 step, fast (delta 2) = 2 steps
+                    // Pure fractions as per user: 3/8,1/2,1/3,3/16,1/4,1/6,3/32,1/8,1/12,3/64,1/16,1/24,3/128,1/32,1/48,3/256,1/64,1/96
                     const RATES: &[(&str, f32)] = &[
-                        ("1/1", 4.0),
-                        ("1/2.", 3.0), ("1/2", 2.0), ("1/2T", 1.333),
-                        ("1/4.", 1.5), ("1/4", 1.0), ("1/4T", 0.666),
-                        ("1/8.", 0.75), ("1/8", 0.5), ("1/8T", 0.333),
-                        ("1/16.", 0.375), ("1/16", 0.25), ("1/16T", 0.166),
-                        ("1/32.", 0.1875), ("1/32", 0.125), ("1/32T", 0.0833),
-                        ("1/64.", 0.09375), ("1/64", 0.0625), ("1/64T", 0.0417),
+                        ("3/8", 1.5), ("1/2", 2.0), ("1/3", 1.333), ("3/16", 0.75), ("1/4", 1.0), ("1/6", 0.666),
+                        ("3/32", 0.375), ("1/8", 0.5), ("1/12", 0.333), ("3/64", 0.1875), ("1/16", 0.25), ("1/24", 0.166),
+                        ("3/128", 0.09375), ("1/32", 0.125), ("1/48", 0.0833), ("3/256", 0.046875), ("1/64", 0.0625), ("1/96", 0.0417),
                     ];
                     let cur_idx = RATES.iter().position(|(n,_)| *n == arp_rate_name).unwrap_or(10);
                     let step = delta as i32;
