@@ -1,226 +1,99 @@
-# Maschine Mikro MK3 - Example Config
-# Usage: cargo run --release -- -c example_config.toml
-# All fields are optional; missing values fall back to sensible defaults.
-# See crates/driver/src/settings.rs for validation rules.
+# Generated from Windows Controller Editor .ncc
+# Source: Mashine Mikro Config 2.ncc (latest, 16 groups)
+# Converted with ncc_to_config.py — edit as needed
 
-# =============================================================================
-# Global MIDI
-# =============================================================================
 client_name = "Maschine Mikro MK3"
 port_name = "Maschine Mikro MK3 MIDI Out"
 
-# Default MIDI channel for buttons/encoder/slider (0-15, shown as 1-16 in DAWs)
-# Pad channel is separate (default 9 = channel 10 drums)
 midi_channel = 0
 pad_channel = 9
 
-# =============================================================================
-# Pads
-# =============================================================================
-
-# Legacy single-page mapping (kept for backward compatibility).
-# If `pad_pages` is defined below, this is ignored.
-# notemaps = [36, 38, 42, 46, 49, 51, 44, 45, 48, 50, 52, 53, 37, 39, 41, 43]
-
-# Multi-page pad mappings: each sub-array is 16 MIDI notes (0-127).
-# This replicates Windows Controller Editor behavior where you can change
-# "pages" to get different notes.
-# - With `pad_page_button = "Group"` and `pad_page_hold_select = true` (default),
-#   hold Group and tap a pad 0..15 to select pages 1..16 (like Group + Pad on Windows).
-# - Tap Group alone (without pad) to cycle to next page.
-# - Set `pad_page_button = ""` to disable paging and keep a static single page.
-# Up to 16 pages supported (matches Windows, 8 was old default). Display shows current page.
-#
-# CHROMATIC LAYOUT:
-#   Each chromatic page below uses sequential notes B .. B+15 where B = base note.
-#   Pad idx 0 = lowest note, idx 15 = highest. Physical bottom-left pad is idx 0
-#   on this driver (pads light sequentially bottom→top in self-test). If your
-#   unit appears vertically flipped (top-left lowest), replace a page's list
-#   with the row-flipped variant:
-#     [ B+12, B+13, B+14, B+15,
-#       B+8,  B+9,  B+10, B+11,
-#       B+4,  B+5,  B+6,  B+7,
-#       B+0,  B+1,  B+2,  B+3 ]
-#   See commented example below.
+# Pad pages from Windows groups (in file order).
+# Driver idx 0 = Pad1, idx 15 = Pad16 (matches Controller Editor Pad1..16)
+# Physical layout note: Controller Editor already compensates for snake wiring,
+# so this order gives sequential chromatic left->right bottom->top physically.
 pad_pages = [
-  # Page 1: General drums (GM-ish) – default on startup
-  [36, 38, 42, 46, 43, 47, 49, 51, 37, 39, 44, 45, 48, 50, 52, 53],
-  # Page 2: Alternative drum kit
-  [36, 38, 42, 46, 41, 43, 45, 49, 35, 37, 39, 40, 44, 48, 52, 55],
-  # Page 3: Chromatic C1  (24-39)  – low sub
-  [24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39],
-  # Page 4: Chromatic C2  (36-51)  – classic C2
-  [36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51],
-  # Page 5: Chromatic C3  (48-63)
-  [48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63],
-  # Page 6: Chromatic C4  (60-75)
-  [60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75],
-  # Page 7: Chromatic C5  (72-87)
-  [72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87],
-  # Page 8: Chromatic C6  (84-99)
-  [84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99],
-  # Page 9: Full range block 0-15 (C-1)
-  [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-  # Page 10: Full range block 16-31
-  [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
-  # Page 11: Full range block 32-47
-  [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47],
-  # Page 12: Full range block 64-79 (E4)
-  [64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79],
-  # Page 13: Full range block 80-95
-  [80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95],
-  # Page 14: Extra chromatic 12-27 (fills gap)
-  [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27],
-  # Page 15: Full range block 96-111
-  [96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111],
-  # Page 16: Full range block 112-127 (top)
-  [112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127],
+  # Micro Drum Sampler
+  [37, 36, 42, 39, 38, 40, 46, 44, 50, 48, 45, 43, 49, 57, 51, 53],
+  # C0
+  [24, 25, 26, 27, 31, 30, 29, 28, 35, 34, 33, 32, 36, 37, 38, 39],
+  # C1
+  [36, 37, 38, 39, 43, 42, 41, 40, 47, 46, 45, 44, 48, 49, 50, 51],
+  # C2
+  [48, 49, 50, 51, 55, 54, 53, 52, 59, 58, 57, 56, 60, 61, 62, 63],
+  # C3
+  [60, 61, 62, 63, 67, 66, 65, 64, 71, 70, 69, 68, 72, 73, 74, 75],
+  # C4
+  [72, 73, 74, 75, 79, 78, 77, 76, 83, 82, 81, 80, 84, 85, 86, 87],
+  # C5
+  [84, 85, 86, 87, 91, 90, 89, 88, 95, 94, 93, 92, 96, 97, 98, 99],
+  # C6
+  [96, 97, 98, 99, 103, 102, 101, 100, 107, 106, 105, 104, 108, 109, 110, 111],
+  # C7
+  [108, 109, 110, 111, 115, 114, 113, 112, 119, 118, 117, 116, 120, 121, 122, 123],
+  # Extra Notes
+  [120, 121, 122, 123, 124, 125, 126, 127, 0, 1, 2, 3, 7, 6, 5, 4],
+  # Extra Notes 2
+  [11, 10, 9, 8, 12, 13, 14, 15, 19, 18, 17, 16, 23, 22, 21, 20],
 ]
 
-# For Windows parity you now have exactly 16 pages (2 drums + 14 chromatic).
-# Trim or reorder – first 8 are most useful for drums/melodic, rest cover full range.
-
-# Row-flipped example for one page (use if top-left is lowest note physically):
-# Replace e.g. [48..63] with [60,61,62,63, 56,57,58,59, 52,53,54,55, 48,49,50,51]
-
-# Which button controls paging. Options: any button name listed in [buttons] below,
-# e.g. "Group", "PadMode", "Keyboard", "Chords", "Scene", "" to disable.
-# Default "Group" matches NI Controller Editor (Group + Pad selects page).
 pad_page_button = "Group"
-
-# When true (default), holding the page button + tapping pad selects page directly.
-# When false, pressing the page button simply cycles 1->2->3...->1.
 pad_page_hold_select = true
-
-# What to send on pad pressure/aftertouch:
-#   "off"     = ignore (default)
-#   "poly"    = polyphonic aftertouch (per-pad, most expressive)
-#   "channel" = channel aftertouch
-#   "cc"      = CC 74 with pressure value
 pad_aftertouch = "poly"
 
-# Optional per-pad LED colors (16 entries). If omitted, pads are Blue.
-# Valid colors: Off, Red, Orange, LightOrange, WarmYellow, Yellow, Lime, Green,
-# Mint, Cyan, Turquoise, Blue, Plum, Violet, Purple, Magenta, Fuchsia, White.
-# Example:
-# pad_colors = ["Blue","Blue","Yellow","Yellow","Green","Green","Red","Red","Cyan","Cyan","Magenta","Magenta","White","White","Orange","Orange"]
-
-# Optional per-page colors (one color per page, up to 16). Used to tint pad LEDs
-# when showing page selector (now auto-clears after 700ms). Uncomment to enable.
-# pad_page_colors = ["Blue", "Green", "Yellow", "Orange", "Purple", "Magenta", "Cyan", "White", "Lime", "Mint", "Turquoise", "Plum", "Violet", "Fuchsia", "Red", "White"]
-
-# =============================================================================
-# Encoder (pushable knob)
-# =============================================================================
+# Encoder (Navigation wheel) and Slider (Touchstrip) from Windows
 [encoder]
-# MIDI CC to send. Channel defaults to midi_channel if not set.
-cc = 14
-# channel = 0
-type = "cc"       # currently only "cc"
-mode = "relative" # "relative" sends 1 (cw) / 127 (ccw) per tick, "absolute" sends 0-127
+cc = 7
+type = "cc"
+mode = "relative"
 
-# =============================================================================
-# Slider / Touch Strip
-# =============================================================================
 [slider]
-cc = 1            # CC1 = Mod Wheel (common for strip)
-# channel = 0
-type = "cc"       # "cc" or set mode="pitchbend" below
-mode = "absolute" # "absolute" sends 0-127 position, "relative" or "pitchbend" (14-bit)
-
-# Examples for alternative strip behavior:
-# mode = "pitchbend"  # sends pitch bend instead of CC
-# mode = "relative"
-
-# =============================================================================
-# Buttons
-# =============================================================================
-# Each button can be mapped to a MIDI CC, Note, ProgramChange, or disabled.
-# Keys are button names (case-insensitive). Valid names:
-#   Maschine, Star, Browse, Volume,
-#   Swing, Tempo, Plugin, Sampling,
-#   Left, Right, Pitch, Mod,
-#   Perform, Notes, Group, Auto,
-#   Lock, NoteRepeat, Restart, Erase,
-#   Tap, Follow, Play, Rec,
-#   Stop, Shift, FixedVol, PadMode,
-#   Keyboard, Chords, Step, Scene,
-#   Pattern, Events, Variation, Duplicate,
-#   Select, Solo, Mute,
-#   EncoderPress, EncoderTouch
-#
-# For each button set:
-#   type = "cc" | "note" | "pc" | "off"
-#   cc   = 0-127   (required for type="cc" or "pc")
-#   note = 0-127   (required for type="note")
-#   channel = 0-15 (optional, defaults to midi_channel)
-#   value_press = 0-127 (for cc, default 127)
-#   value_release = 0-127 (for cc, default 0)
-#
-# Note: if a button is configured as `pad_page_button` (e.g. Group) and you have
-# multiple pad_pages, it is reserved for paging and will NOT send MIDI.
-# Set pad_page_button = "" if you want Group to send MIDI instead.
+cc = 1
+type = "cc"
+mode = "absolute"
 
 [buttons]
-# --- Top left cluster ---
-Maschine    = { type = "cc", cc = 20 }
-Star        = { type = "cc", cc = 21 }
-Browse      = { type = "cc", cc = 22 }
-Volume      = { type = "cc", cc = 23 }
+Auto = { type = "cc", cc = 35 }
+Browse = { type = "cc", cc = 40 }
+Chords = { type = "cc", cc = 84 }
+Duplicate = { type = "cc", cc = 89 }
+EncoderPress = { type = "cc", cc = 8 }
+Erase = { type = "cc", cc = 54 }
+Events = { type = "cc", cc = 87 }
+FixedVol = { type = "cc", cc = 80 }
+Follow = { type = "cc", cc = 56 }
+Group = { type = "cc", cc = 34 }
+Keyboard = { type = "cc", cc = 82 }
+Lock = { type = "cc", cc = 36 }
+Maschine = { type = "cc", cc = 38 }
+Mod = { type = "cc", cc = 50 }
+Mute = { type = "cc", cc = 92 }
+NoteRepeat = { type = "cc", cc = 37 }
+Notes = { type = "cc", cc = 52 }
+PadMode = { type = "cc", cc = 81 }
+Pattern = { type = "cc", cc = 86 }
+Perform = { type = "cc", cc = 51 }
+Pitch = { type = "cc", cc = 49 }
+Play = { type = "cc", cc = 57 }
+Plugin = { type = "cc", cc = 45 }
+Rec = { type = "cc", cc = 58 }
+Restart = { type = "cc", cc = 53 }
+Sampling = { type = "cc", cc = 47 }
+Scene = { type = "cc", cc = 85 }
+Select = { type = "cc", cc = 90 }
+Solo = { type = "cc", cc = 91 }
+Star = { type = "cc", cc = 39 }
+Step = { type = "cc", cc = 83 }
+Stop = { type = "cc", cc = 59 }
+Swing = { type = "cc", cc = 46 }
+Tap = { type = "cc", cc = 55 }
+Tempo = { type = "cc", cc = 48 }
+Variation = { type = "cc", cc = 88 }
+Volume = { type = "cc", cc = 44 }
 
-Swing       = { type = "cc", cc = 24 }
-Tempo       = { type = "cc", cc = 25 }
-Plugin      = { type = "cc", cc = 26 }
-Sampling    = { type = "cc", cc = 27 }
+# Not mapped in Windows config (driver will use defaults if omitted):
+# Left = { type = "cc", cc = 0 }
+# Right = { type = "cc", cc = 0 }
+# Shift = { type = "cc", cc = 0 }
+# EncoderTouch = { type = "cc", cc = 0 }
 
-Left        = { type = "cc", cc = 28 }
-Right       = { type = "cc", cc = 29 }
-Pitch       = { type = "cc", cc = 30 }
-Mod         = { type = "cc", cc = 31 }
-
-Perform     = { type = "cc", cc = 32 }
-Notes       = { type = "cc", cc = 33 }
-# Group is reserved for paging by default; uncomment to make it send MIDI instead:
-# Group       = { type = "cc", cc = 34 }
-Auto        = { type = "cc", cc = 35 }
-
-Lock        = { type = "cc", cc = 36 }
-NoteRepeat  = { type = "cc", cc = 37 }
-Restart     = { type = "cc", cc = 38 }
-Erase       = { type = "cc", cc = 39 }
-
-# --- Transport ---
-Tap         = { type = "cc", cc = 40 }
-Follow      = { type = "cc", cc = 41 }
-Play        = { type = "cc", cc = 85 }  # 85/86/87 are common MMC aliases
-Rec         = { type = "cc", cc = 86 }
-Stop        = { type = "cc", cc = 87 }
-
-# --- Modifiers / Modes ---
-Shift       = { type = "cc", cc = 88 }
-FixedVol    = { type = "cc", cc = 89 }
-PadMode     = { type = "cc", cc = 90 }
-Keyboard    = { type = "cc", cc = 91 }
-Chords      = { type = "cc", cc = 92 }
-Step        = { type = "cc", cc = 93 }
-Scene       = { type = "cc", cc = 94 }
-Pattern     = { type = "cc", cc = 95 }
-Events      = { type = "cc", cc = 96 }
-Variation   = { type = "cc", cc = 97 }
-Duplicate   = { type = "cc", cc = 98 }
-
-Select      = { type = "cc", cc = 99 }
-Solo        = { type = "cc", cc = 100 }
-Mute        = { type = "cc", cc = 101 }
-
-EncoderPress = { type = "cc", cc = 102 }
-# EncoderTouch is touch-sensitive but rarely mapped; example as note:
-# EncoderTouch = { type = "note", note = 64 }
-
-# --- Examples for note-type buttons (uncomment to use) ---
-# Play = { type = "note", note = 60, channel = 0 }  # C4 note trigger
-# Stop = { type = "note", note = 61 }
-# Rec  = { type = "note", note = 62 }
-
-# --- Disable a button (no MIDI, only LED) ---
-# Mute = { type = "off" }
