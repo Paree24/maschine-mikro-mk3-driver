@@ -559,8 +559,17 @@ fn main_loop(
     port: &mut MidiOutputConnection,
     settings: &Settings,
 ) -> HidResult<()> {
-    let pad_pages = settings.effective_pad_pages();
-    let total_pages = pad_pages.len();
+    let base_pages = settings.effective_pad_pages();
+    // 16 fresh drum pages for PadMode gate (mainly for drums) - appended to make 64 total
+    let drum_pages: Vec<Vec<u8>> = {
+        let base: Vec<u8> = vec![36,38,42,46,41,43,45,47,37,39,44,49,51,54,56,59];
+        (0..16).map(|p| base.iter().map(|n| (( *n as i32 + (p as i32 * 2) ).clamp(0,127) as u8)).collect()).collect()
+    };
+    let mut pad_pages = base_pages.clone();
+    if pad_pages.len() == 48 {
+        pad_pages.extend(drum_pages.clone());
+    }
+    let total_pages = pad_pages.len(); // 64 when 48+16
     let mut current_page: usize = 0;
     let mut pad_page_holding = false;
     let mut page_selected_via_pad = false;
@@ -608,12 +617,7 @@ fn main_loop(
     // For auto-clearing page selector LEDs
     let mut selector_active = false;
     let mut selector_since: Option<Instant> = None;
-
-    // 16 fresh drum pages unlocked by PadMode gate (mainly for drums)
-    let drum_pages: Vec<Vec<u8>> = {
-        let base: Vec<u8> = vec![36,38,42,46,41,43,45,47,37,39,44,49,51,54,56,59];
-        (0..16).map(|p| base.iter().map(|n| (( *n as i32 + (p as i32 * 2) ).clamp(0,127) as u8)).collect()).collect()
-    };
+    // drum_pages already defined above (16 fresh pages appended to pad_pages for 64 total)
 
     // Init Pitch/Mod/Perform LEDs to reflect strip mode - 3-way exclusive, exactly one Bright, others Dim
     {
@@ -1374,6 +1378,23 @@ fn main_loop(
                 };
                 println!("Pad {}: {:?} @ {} (page {})", idx, pad_evt, val, current_page);
 
+                // PadMode+Pad for drum pages 48-63 (16 fresh) - gate unlocks
+                if padmode_held && settings.pad_page_hold_select && total_pages > 48 {
+                    match pad_evt {
+                        PadEventType::NoteOn | PadEventType::PressOn => {
+                            let page_idx = 48 + idx as usize;
+                            if page_idx < total_pages {
+                                if page_idx != current_page {
+                                    current_page = page_idx;
+                                    page_changed = true;
+                                    println!("Pad page selected via PadMode+pad {} -> {}/{}", idx, current_page + 1, total_pages);
+                                }
+                            }
+                            continue;
+                        }
+                        _ => continue,
+                    }
+                }
                 // Hold-select: Group + pad chooses page (1-16)
                 if pad_page_holding && settings.pad_page_hold_select && total_pages > 1 {
                     match pad_evt {
@@ -1465,8 +1486,8 @@ fn main_loop(
                             else {
                                 if scene_held && base_notes.len() == 3 { let mut tmp = settings.chord_types.clone(); let sn = settings.scale_names.get(current_page).map(|s| s.as_str()); if let Some(name) = sn { tmp.insert(name.to_string(), "tetrad".to_string()); } base_notes = triad_for_pad(arp_notes_src, idx as usize, transpose_offset, sn, &tmp); }
                                 if pattern_held && base_notes.len() == 4 { base_notes.truncate(3); }
-                                if events_held && base_notes.len() >=2 { let r = base_notes[0] as i32; let t = base_notes[1] as i32; if (t-r).rem_euclid(12)==4 { base_notes[1]=((t-1).clamp(0,127)) as u8; } }
-                                if variation_held && base_notes.len() >=2 { let r = base_notes[0] as i32; let t = base_notes[1] as i32; if (t-r).rem_euclid(12)==3 { base_notes[1]=((t+1).clamp(0,127)) as u8; } }
+                                if events_held && base_notes.len() >=2 { let r = base_notes[0] as i32; let t = base_notes[1] as i32; if (t-r).rem_euclid(12)==4 { base_notes[1]=((t-1).clamp(0,127)) as u8; } if base_notes.len()==4 { let s = base_notes[3] as i32; if (s-r).rem_euclid(12)==11 { base_notes[3]=((s-1).clamp(0,127)) as u8; } } }
+                                if variation_held && base_notes.len() >=2 { let r = base_notes[0] as i32; let t = base_notes[1] as i32; if (t-r).rem_euclid(12)==3 { base_notes[1]=((t+1).clamp(0,127)) as u8; } if base_notes.len()==4 { let s = base_notes[3] as i32; if (s-r).rem_euclid(12)==10 { base_notes[3]=((s+1).clamp(0,127)) as u8; } } }
                             }
                             if solo_held { let r = base_notes[0] as i32; let n = ((r+14).clamp(0,127)) as u8; if !base_notes.contains(&n) { base_notes.push(n); } }
                             if mute_held { let r = base_notes[0] as i32; let n = ((r+17).clamp(0,127)) as u8; if !base_notes.contains(&n) { base_notes.push(n); } }
@@ -1609,10 +1630,12 @@ fn main_loop(
                                 if events_held && g.len() >= 2 {
                                     let root = g[0] as i32; let third = g[1] as i32;
                                     if (third - root).rem_euclid(12) == 4 { g[1] = ((third - 1).clamp(0,127)) as u8; }
+                                    if g.len() == 4 { let seventh = g[3] as i32; if (seventh - root).rem_euclid(12) == 11 { g[3] = ((seventh - 1).clamp(0,127)) as u8; } }
                                 }
                                 if variation_held && g.len() >= 2 {
                                     let root = g[0] as i32; let third = g[1] as i32;
                                     if (third - root).rem_euclid(12) == 3 { g[1] = ((third + 1).clamp(0,127)) as u8; }
+                                    if g.len() == 4 { let seventh = g[3] as i32; if (seventh - root).rem_euclid(12) == 10 { g[3] = ((seventh + 1).clamp(0,127)) as u8; } }
                                 }
                             }
                             if solo_held { let root = g[0] as i32; let n = ((root + 14).clamp(0,127)) as u8; if !g.contains(&n) { g.push(n); } }
@@ -1659,8 +1682,8 @@ fn main_loop(
                                     g = triad_for_pad(notes, idx as usize, transpose_offset, scale_name, &tmp);
                                 }
                                 if pattern_held && g.len() == 4 { g.truncate(3); }
-                                if events_held && g.len() >= 2 { let root = g[0] as i32; let third = g[1] as i32; if (third - root).rem_euclid(12) == 4 { g[1] = ((third - 1).clamp(0,127)) as u8; } }
-                                if variation_held && g.len() >= 2 { let root = g[0] as i32; let third = g[1] as i32; if (third - root).rem_euclid(12) == 3 { g[1] = ((third + 1).clamp(0,127)) as u8; } }
+                                if events_held && g.len() >= 2 { let root = g[0] as i32; let third = g[1] as i32; if (third - root).rem_euclid(12) == 4 { g[1] = ((third - 1).clamp(0,127)) as u8; } if g.len() == 4 { let seventh = g[3] as i32; if (seventh - root).rem_euclid(12) == 11 { g[3] = ((seventh - 1).clamp(0,127)) as u8; } } }
+                                if variation_held && g.len() >= 2 { let root = g[0] as i32; let third = g[1] as i32; if (third - root).rem_euclid(12) == 3 { g[1] = ((third + 1).clamp(0,127)) as u8; } if g.len() == 4 { let seventh = g[3] as i32; if (seventh - root).rem_euclid(12) == 10 { g[3] = ((seventh + 1).clamp(0,127)) as u8; } } }
                             }
                             if solo_held { let root = g[0] as i32; let n = ((root + 14).clamp(0,127)) as u8; if !g.contains(&n) { g.push(n); } }
                             if mute_held { let root = g[0] as i32; let n = ((root + 17).clamp(0,127)) as u8; if !g.contains(&n) { g.push(n); } }
