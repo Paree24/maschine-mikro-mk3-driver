@@ -575,6 +575,7 @@ fn main_loop(
     let norm_map = normalized_button_map(settings);
     let mut transpose_offset: i32 = 0;
     let mut strip_is_pitchbend = settings.slider.mode == "pitchbend";
+    let mut perform_free = false;
     let mut prev_slider_touched = false;
     let mut arp_enabled = false;
     let mut arp_mode = ArpMode::Up;
@@ -592,15 +593,16 @@ fn main_loop(
     let mut selector_active = false;
     let mut selector_since: Option<Instant> = None;
 
-    // Init Pitch/Mod LEDs to reflect strip mode
+    // Init Pitch/Mod/Perform LEDs to reflect strip mode
     {
-        let pitch_btn = Buttons::Pitch;
-        let mod_btn = Buttons::Mod;
-        if lights.button_has_light(pitch_btn) {
-            lights.set_button(pitch_btn, if strip_is_pitchbend { Brightness::Bright } else { Brightness::Off });
+        if lights.button_has_light(Buttons::Pitch) {
+            lights.set_button(Buttons::Pitch, if !perform_free && strip_is_pitchbend { Brightness::Bright } else { Brightness::Off });
         }
-        if lights.button_has_light(mod_btn) {
-            lights.set_button(mod_btn, if !strip_is_pitchbend { Brightness::Bright } else { Brightness::Off });
+        if lights.button_has_light(Buttons::Mod) {
+            lights.set_button(Buttons::Mod, if !perform_free && !strip_is_pitchbend { Brightness::Bright } else { Brightness::Off });
+        }
+        if lights.button_has_light(Buttons::Perform) {
+            lights.set_button(Buttons::Perform, if perform_free { Brightness::Bright } else { Brightness::Dim });
         }
         let _ = lights.write(device);
     }
@@ -800,11 +802,21 @@ fn main_loop(
                             println!("Button release: {:?}", button);
                         }
 
-                        // Strip mode toggle: Pitch = pitchbend, Mod = modwheel (original Maschine)
+                        // Strip mode: Pitch = pitchbend (spring to center), Mod = modwheel (hold), Perform = free assignable CC (hold)
                         if status && (button == Buttons::Pitch || button == Buttons::Mod) {
                             let new_is_pitch = button == Buttons::Pitch;
+                            // Selecting Pitch/Mod exits Perform free mode
+                            if perform_free {
+                                perform_free = false;
+                                if lights.button_has_light(Buttons::Perform) {
+                                    lights.set_button(Buttons::Perform, Brightness::Dim);
+                                }
+                                println!("Perform free -> off (strip returned to Pitch/Mod)");
+                            }
                             if new_is_pitch != strip_is_pitchbend {
                                 strip_is_pitchbend = new_is_pitch;
+                                println!("Strip mode -> {}", if strip_is_pitchbend { "PitchBend" } else { "ModWheel" });
+                            } else {
                                 println!("Strip mode -> {}", if strip_is_pitchbend { "PitchBend" } else { "ModWheel" });
                             }
                             if lights.button_has_light(Buttons::Pitch) {
@@ -955,6 +967,33 @@ fn main_loop(
                             changed_lights = true;
                         } else if !status && button == Buttons::Step {
                             // keep LED
+                        } else if status && button == Buttons::Perform {
+                            perform_free = !perform_free;
+                            println!("Perform free -> {}", if perform_free { "CC assignable (strip free)" } else { "off" });
+                            if perform_free {
+                                if lights.button_has_light(Buttons::Pitch) {
+                                    lights.set_button(Buttons::Pitch, Brightness::Off);
+                                }
+                                if lights.button_has_light(Buttons::Mod) {
+                                    lights.set_button(Buttons::Mod, Brightness::Off);
+                                }
+                                if lights.button_has_light(Buttons::Perform) {
+                                    lights.set_button(Buttons::Perform, Brightness::Bright);
+                                }
+                            } else {
+                                if lights.button_has_light(Buttons::Pitch) {
+                                    lights.set_button(Buttons::Pitch, if strip_is_pitchbend { Brightness::Bright } else { Brightness::Off });
+                                }
+                                if lights.button_has_light(Buttons::Mod) {
+                                    lights.set_button(Buttons::Mod, if !strip_is_pitchbend { Brightness::Bright } else { Brightness::Off });
+                                }
+                                if lights.button_has_light(Buttons::Perform) {
+                                    lights.set_button(Buttons::Perform, Brightness::Dim);
+                                }
+                            }
+                            changed_lights = true;
+                        } else if !status && button == Buttons::Perform {
+                            // keep LED latched
                         } else if let Some(action) = transpose_action(settings, button) {
                             if status {
                                 let delta = match action {
@@ -1171,18 +1210,21 @@ fn main_loop(
                     lights.set_slider(i as usize, b);
                 }
                 changed_lights = true;
-                handle_slider(port, settings, slider_val, strip_is_pitchbend);
+                let is_pb = strip_is_pitchbend && !perform_free;
+                handle_slider(port, settings, slider_val, is_pb);
                 prev_slider_touched = true;
             } else if prev_slider_touched {
                 if arp_enabled {
                     // keep arp rate LEDs dim when released, don't center pitchbend
                     for i in 0..25 { lights.set_slider(i, Brightness::Dim); }
                     changed_lights = true;
-                } else if strip_is_pitchbend {
+                } else if strip_is_pitchbend && !perform_free {
+                    // PitchBend spring: reset to center 8192 on finger lift
                     handle_slider(port, settings, 0, true);
                     for i in 0..25 { lights.set_slider(i, Brightness::Dim); }
                     changed_lights = true;
                 } else {
+                    // ModWheel and Perform free: hold last value (manual reset), just dim LEDs
                     for i in 0..25 { lights.set_slider(i, Brightness::Dim); }
                     changed_lights = true;
                 }
