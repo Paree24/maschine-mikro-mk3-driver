@@ -254,8 +254,14 @@ fn update_screen(screen: &mut Screen, device: &HidDevice, page: usize, total: us
 }
 
 fn update_screen_with_transpose(screen: &mut Screen, device: &HidDevice, page: usize, total: usize, _transpose: i32) -> HidResult<()> {
-    // Transpose display disabled per user request (was small T±n at top)
     update_screen_arp(screen, device, page, total, 0, false, "", 1)
+}
+
+fn should_handle_encoder_rotation(raw: u8) -> bool {
+    // Only handle actual rotation deltas, not touch noise
+    // Raw 1 = CW tick, 0xFF (-1) = CCW, 0 = idle. Ignore other values (e.g. 0x7F touch noise)
+    let delta = raw as i8;
+    delta == 1 || delta == -1 || delta == 2 || delta == -2
 }
 
 fn update_screen_arp(screen: &mut Screen, device: &HidDevice, page: usize, total: usize, transpose: i32, arp_on: bool, arp_rate: &str, arp_oct: usize) -> HidResult<()> {
@@ -1084,20 +1090,23 @@ fn main_loop(
                 }
             }
             let encoder_val = buf[7];
-            if encoder_val != 0 {
+            if encoder_val != 0 && should_handle_encoder_rotation(encoder_val) {
                 if arp_enabled {
                     let delta = encoder_val as i8;
-                    if delta != 0 {
+                    // Only handle actual rotation deltas, ignore touch noise from nearby presses
+                    if delta == 1 || delta == -1 || delta == 2 || delta == -2 {
                         const RATES: &[(&str, f32)] = &[
                             ("1/1", 4.0), ("1/2.", 3.0), ("1/2", 2.0), ("1/4.", 1.5), ("1/2T", 1.333), ("1/4", 1.0), ("1/8.", 0.75), ("1/4T", 0.666), ("1/8", 0.5), ("1/16.", 0.375), ("1/8T", 0.333), ("1/16", 0.25), ("1/32.", 0.1875), ("1/16T", 0.166), ("1/32", 0.125), ("1/64.", 0.09375), ("1/32T", 0.0833), ("1/64", 0.0625), ("1/64T", 0.0417),
                         ];
                         let cur_idx = RATES.iter().position(|(n,_)| *n == arp_rate_name).unwrap_or(10);
-                        let step = delta as i32;
+                        let step = if delta > 0 { 1 } else { -1 };
+                        // For fast twist (delta 2/-2), step 2
+                        let step = if delta.abs() == 2 { step * 2 } else { step };
                         let next_idx = (cur_idx as i32 + step).rem_euclid(RATES.len() as i32) as usize;
                         let (next_name, beats) = RATES[next_idx];
                         arp_rate = Duration::from_secs_f32(60.0/120.0 * beats);
                         arp_rate_name = next_name.to_string();
-                        println!("Arp rate -> {} ({:?}) via Encoder {} ({}->{})", arp_rate_name, arp_rate, delta, cur_idx, next_idx);
+                        println!("Arp rate -> {} ({:?}) via Encoder {}", arp_rate_name, arp_rate, delta);
                         let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
                         if lights.button_has_light(Buttons::EncoderPress) {
                             lights.set_button(Buttons::EncoderPress, Brightness::Bright);
