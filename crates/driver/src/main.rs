@@ -595,16 +595,16 @@ fn main_loop(
     let mut selector_active = false;
     let mut selector_since: Option<Instant> = None;
 
-    // Init Pitch/Mod/Perform LEDs to reflect strip mode - 3-way exclusive, exactly one Bright, others Off
+    // Init Pitch/Mod/Perform LEDs to reflect strip mode - 3-way exclusive, exactly one Bright, others Dim
     {
         if lights.button_has_light(Buttons::Pitch) {
-            lights.set_button(Buttons::Pitch, if strip_mode == StripMode::PitchBend { Brightness::Bright } else { Brightness::Off });
+            lights.set_button(Buttons::Pitch, if strip_mode == StripMode::PitchBend { Brightness::Bright } else { Brightness::Dim });
         }
         if lights.button_has_light(Buttons::Mod) {
-            lights.set_button(Buttons::Mod, if strip_mode == StripMode::ModWheel { Brightness::Bright } else { Brightness::Off });
+            lights.set_button(Buttons::Mod, if strip_mode == StripMode::ModWheel { Brightness::Bright } else { Brightness::Dim });
         }
         if lights.button_has_light(Buttons::Perform) {
-            lights.set_button(Buttons::Perform, if strip_mode == StripMode::Free { Brightness::Bright } else { Brightness::Off });
+            lights.set_button(Buttons::Perform, if strip_mode == StripMode::Free { Brightness::Bright } else { Brightness::Dim });
         }
         let _ = lights.write(device);
     }
@@ -817,8 +817,8 @@ fn main_loop(
                                 println!("Strip mode -> PitchBend (already)");
                             }
                             if lights.button_has_light(Buttons::Pitch) { lights.set_button(Buttons::Pitch, Brightness::Bright); }
-                            if lights.button_has_light(Buttons::Mod) { lights.set_button(Buttons::Mod, Brightness::Off); }
-                            if lights.button_has_light(Buttons::Perform) { lights.set_button(Buttons::Perform, Brightness::Off); }
+                            if lights.button_has_light(Buttons::Mod) { lights.set_button(Buttons::Mod, Brightness::Dim); }
+                            if lights.button_has_light(Buttons::Perform) { lights.set_button(Buttons::Perform, Brightness::Dim); }
                             changed_lights = true;
                         } else if status && button == Buttons::Mod {
                             if strip_mode != StripMode::ModWheel {
@@ -828,9 +828,9 @@ fn main_loop(
                             } else {
                                 println!("Strip mode -> ModWheel (already)");
                             }
-                            if lights.button_has_light(Buttons::Pitch) { lights.set_button(Buttons::Pitch, Brightness::Off); }
+                            if lights.button_has_light(Buttons::Pitch) { lights.set_button(Buttons::Pitch, Brightness::Dim); }
                             if lights.button_has_light(Buttons::Mod) { lights.set_button(Buttons::Mod, Brightness::Bright); }
-                            if lights.button_has_light(Buttons::Perform) { lights.set_button(Buttons::Perform, Brightness::Off); }
+                            if lights.button_has_light(Buttons::Perform) { lights.set_button(Buttons::Perform, Brightness::Dim); }
                             changed_lights = true;
                         } else if !status && (button == Buttons::Pitch || button == Buttons::Mod) {
                             // release keep latched
@@ -984,9 +984,9 @@ fn main_loop(
                                 strip_mode = strip_prev_nonfree;
                                 println!("Perform free -> off (back to {:?})", strip_mode);
                             }
-                            if lights.button_has_light(Buttons::Pitch) { lights.set_button(Buttons::Pitch, if strip_mode == StripMode::PitchBend { Brightness::Bright } else { Brightness::Off }); }
-                            if lights.button_has_light(Buttons::Mod) { lights.set_button(Buttons::Mod, if strip_mode == StripMode::ModWheel { Brightness::Bright } else { Brightness::Off }); }
-                            if lights.button_has_light(Buttons::Perform) { lights.set_button(Buttons::Perform, if strip_mode == StripMode::Free { Brightness::Bright } else { Brightness::Off }); }
+                            if lights.button_has_light(Buttons::Pitch) { lights.set_button(Buttons::Pitch, if strip_mode == StripMode::PitchBend { Brightness::Bright } else { Brightness::Dim }); }
+                            if lights.button_has_light(Buttons::Mod) { lights.set_button(Buttons::Mod, if strip_mode == StripMode::ModWheel { Brightness::Bright } else { Brightness::Dim }); }
+                            if lights.button_has_light(Buttons::Perform) { lights.set_button(Buttons::Perform, if strip_mode == StripMode::Free { Brightness::Bright } else { Brightness::Dim }); }
                             changed_lights = true;
                         } else if !status && button == Buttons::Perform {
                             // keep LED latched (3-way toggle: release does not change mode)
