@@ -807,22 +807,7 @@ fn main_loop(
                                 changed_lights = true;
                             }
                         } else if status && button == Buttons::Tempo && arp_enabled {
-                            // Tempo cycles arp rate 1/1 .. 1/64 dotted/triplet
-                            let rates = ["1/1","1/2","1/2.","1/2T","1/4","1/4.","1/4T","1/8","1/8.","1/8T","1/16","1/16.","1/16T","1/32","1/32.","1/32T","1/64","1/64.","1/64T"];
-                            let cur_idx = rates.iter().position(|&r| r == arp_rate_name).unwrap_or(10);
-                            let next_idx = (cur_idx + 1) % rates.len();
-                            let next_name = rates[next_idx];
-                            let beats = match next_name {
-                                "1/1" => 4.0, "1/2"=>2.0, "1/2."=>3.0, "1/2T"=>1.333,
-                                "1/4"=>1.0, "1/4."=>1.5, "1/4T"=>0.666,
-                                "1/8"=>0.5, "1/8."=>0.75, "1/8T"=>0.333,
-                                "1/16"=>0.25, "1/16."=>0.375, "1/16T"=>0.166,
-                                "1/32"=>0.125, "1/32."=>0.1875, "1/32T"=>0.0833,
-                                "1/64"=>0.0625, "1/64."=>0.09375, "1/64T"=>0.0417, _=>0.25
-                            };
-                            arp_rate = Duration::from_secs_f32(60.0/120.0 * beats);
-                            arp_rate_name = next_name.to_string();
-                            println!("Arp rate -> {} ({:?})", arp_rate_name, arp_rate);
+                            // Tempo now free (was arp rate) – keep dim, no arp rate here (encoder does rate)
                             if lights.button_has_light(Buttons::Tempo) {
                                 lights.set_button(Buttons::Tempo, Brightness::Bright);
                                 changed_lights = true;
@@ -1043,8 +1028,36 @@ fn main_loop(
             }
             let encoder_val = buf[7];
             if encoder_val != 0 {
-                println!("Encoder: {}", encoder_val as i8);
-                handle_encoder(port, settings, encoder_val);
+                if arp_enabled {
+                    // Encoder cycles arp rate 1/1 .. 1/64 dotted/triplet, monotonic slow->fast
+                    let delta = encoder_val as i8;
+                    if delta != 0 {
+                        // Sorted by beats descending (slow to fast) for monotonic cycling
+                        const RATES: &[(&str, f32)] = &[
+                            ("1/1", 4.0), ("1/2.", 3.0), ("1/2", 2.0), ("1/4.", 1.5), ("1/2T", 1.333), ("1/4", 1.0), ("1/8.", 0.75), ("1/4T", 0.666), ("1/8", 0.5), ("1/16.", 0.375), ("1/8T", 0.333), ("1/16", 0.25), ("1/32.", 0.1875), ("1/16T", 0.166), ("1/32", 0.125), ("1/64.", 0.09375), ("1/32T", 0.0833), ("1/64", 0.0625), ("1/64T", 0.0417),
+                        ];
+                        let cur_idx = RATES.iter().position(|(n,_)| *n == arp_rate_name).unwrap_or(10);
+                        let step = if delta > 0 { 1 } else { -1 };
+                        let next_idx = (cur_idx as i32 + step).rem_euclid(RATES.len() as i32) as usize;
+                        let (next_name, beats) = RATES[next_idx];
+                        arp_rate = Duration::from_secs_f32(60.0/120.0 * beats);
+                        arp_rate_name = next_name.to_string();
+                        println!("Arp rate -> {} ({:?}) via Encoder {}", arp_rate_name, arp_rate, delta);
+                        // Flash encoder press LED
+                        if lights.button_has_light(Buttons::EncoderPress) {
+                            lights.set_button(Buttons::EncoderPress, Brightness::Bright);
+                            changed_lights = true;
+                        }
+                    }
+                } else {
+                    println!("Encoder: {}", encoder_val as i8);
+                    handle_encoder(port, settings, encoder_val);
+                }
+            } else if arp_enabled {
+                // Encoder released? keep LED dim
+                if lights.button_has_light(Buttons::EncoderPress) {
+                    // keep as is
+                }
             }
             let slider_val = buf[10];
             let slider_touched = slider_val != 0;
@@ -1154,14 +1167,29 @@ fn main_loop(
                 }
 
                 if arp_enabled {
-                    let base = pad_pages[current_page][idx as usize] as i32;
-                    let root = ((base + transpose_offset).clamp(0,127)) as u8;
-                    // Generate notes for all octaves (1-4) for this held pad
-                    let mut notes_for_pad = Vec::new();
-                    for oct in 0..arp_octaves {
-                        let n = ((root as i32 + (oct as i32 * 12)).clamp(0,127)) as u8;
-                        notes_for_pad.push(n);
-                    }
+                    // Arp arpeggiates held notes; if Chords mode also on, arpeggiate the chord notes (triad/power)
+                    let notes_for_pad: Vec<u8> = if chords_active {
+                        let scale_name = settings.scale_names.get(current_page).map(|s| s.as_str());
+                        let triad = triad_for_pad(&pad_pages[current_page], idx as usize, transpose_offset, scale_name, &settings.chord_types);
+                        // Expand triad across octaves if arp_octaves >1
+                        let mut expanded = Vec::new();
+                        for n in triad {
+                            for oct in 0..arp_octaves {
+                                let v = ((n as i32 + (oct as i32 * 12)).clamp(0,127)) as u8;
+                                expanded.push(v);
+                            }
+                        }
+                        expanded
+                    } else {
+                        let base = pad_pages[current_page][idx as usize] as i32;
+                        let root = ((base + transpose_offset).clamp(0,127)) as u8;
+                        let mut v = Vec::new();
+                        for oct in 0..arp_octaves {
+                            let n = ((root as i32 + (oct as i32 * 12)).clamp(0,127)) as u8;
+                            v.push(n);
+                        }
+                        v
+                    };
                     match pad_evt {
                         PadEventType::NoteOn | PadEventType::PressOn => {
                             for n in &notes_for_pad {
