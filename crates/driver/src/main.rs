@@ -341,23 +341,41 @@ fn handle_encoder(port: &mut MidiOutputConnection, settings: &Settings, raw: u8)
 }
 
 fn handle_slider(port: &mut MidiOutputConnection, settings: &Settings, raw: u8, is_pitchbend: bool) {
+    // Pitch bend should be on pad channel so it affects pad notes (Vital etc).
+    // Mod wheel also on pad channel for consistency; Arturia works with both.
+    let ch = if is_pitchbend {
+        settings.pad_midi_channel()
+    } else {
+        settings.effective_channel(settings.slider.channel)
+    };
+    let cc = settings.slider.cc;
     if raw == 0 {
+        if is_pitchbend {
+            // strip released -> center pitchbend
+            let bend = midly::PitchBend(midly::num::u14::from(8192));
+            println!("Slider PitchBend center ch {}", ch);
+            send_midi(port, ch, MidiMessage::PitchBend { bend });
+            // also send to midi_channel for DAWs listening there
+            let ch2 = settings.effective_channel(settings.slider.channel);
+            if ch2 != ch {
+                send_midi(port, ch2, MidiMessage::PitchBend { bend });
+            }
+        }
         return;
     }
-    let ch = settings.effective_channel(settings.slider.channel);
-    let cc = settings.slider.cc;
     let scaled = ((raw as u16 * 127) / 200).min(127) as u8;
     let val = scaled;
     if is_pitchbend {
-            // map 0..127 to 0..16383 centered? Use simple: val scaled to 14-bit
-            let bend_val = (val as u16 * 128) + 8192; // crude center
-            let bend = midly::num::u14::from(bend_val.min(16383));
-            println!("Slider -> PitchBend ch {} val {} raw {}", ch, bend_val, raw);
-            send_midi(
-                port,
-                ch,
-                MidiMessage::PitchBend { bend: midly::PitchBend(bend) },
-            );
+            // full 0..16383 range, 8192 center at val 64
+            let bend_val = (val as u32 * 16383 / 127) as u16;
+            let bend = midly::num::u14::from(bend_val);
+            println!("Slider -> PitchBend ch {} val {} raw {} bend {}", ch, bend_val, raw, bend_val);
+            send_midi(port, ch, MidiMessage::PitchBend { bend: midly::PitchBend(bend) });
+            // mirror to other channel for compatibility (Arturia listens on midi_channel)
+            let ch2 = settings.effective_channel(settings.slider.channel);
+            if ch2 != ch {
+                send_midi(port, ch2, MidiMessage::PitchBend { bend: midly::PitchBend(bend) });
+            }
         } else {
             println!("Slider -> CC {} ch {} val {} raw {}", cc, ch, val, raw);
             send_midi(
@@ -387,6 +405,7 @@ fn main_loop(
     let norm_map = normalized_button_map(settings);
     let mut transpose_offset: i32 = 0;
     let mut strip_is_pitchbend = settings.slider.mode == "pitchbend";
+    let mut prev_slider_touched = false;
 
     // For auto-clearing page selector LEDs
     let mut selector_active = false;
@@ -404,6 +423,25 @@ fn main_loop(
         }
         let _ = lights.write(device);
     }
+    // Default: all pads and buttons lit (user request) – after self_test they are off
+    {
+        for p in 0..16 {
+            lights.set_pad(p, PadColors::Blue, Brightness::Normal);
+        }
+        for bid in 0..39 {
+            if let Some(btn) = num::FromPrimitive::from_usize(bid) {
+                if lights.button_has_light(btn) {
+                    lights.set_button(btn, Brightness::Dim);
+                }
+            }
+        }
+        // Keep Group bright to indicate page, Pitch/Mod already set above
+        // Slider dim
+        for i in 0..25 {
+            lights.set_slider(i, Brightness::Dim);
+        }
+        let _ = lights.write(device);
+    }
 
     // Prepare pad color helpers
     let default_pad_color = PadColors::Blue;
@@ -416,9 +454,9 @@ fn main_loop(
             if selector_active {
                 if let Some(since) = selector_since {
                     if since.elapsed() > Duration::from_millis(700) {
-                        // clear selector: all pads off
+                        // restore default lit state (all pads lit)
                         for p in 0..16 {
-                            lights.set_pad(p, PadColors::Blue, Brightness::Off);
+                            lights.set_pad(p, PadColors::Blue, Brightness::Normal);
                         }
                         lights.write(device)?;
                         selector_active = false;
@@ -434,7 +472,7 @@ fn main_loop(
             if let Some(since) = selector_since {
                 if since.elapsed() > Duration::from_millis(700) {
                     for p in 0..16 {
-                        lights.set_pad(p, PadColors::Blue, Brightness::Off);
+                        lights.set_pad(p, PadColors::Blue, Brightness::Normal);
                     }
                     // will be written via changed_lights below
                     lights.write(device)?;
@@ -518,7 +556,7 @@ fn main_loop(
                                 }
                             } else {
                                 if lights.button_has_light(button) {
-                                    lights.set_button(button, Brightness::Off);
+                                    lights.set_button(button, Brightness::Dim);
                                     changed_lights = true;
                                 }
                             }
@@ -543,7 +581,7 @@ fn main_loop(
                                     }
                                     page_selected_via_pad = false;
                                     if lights.button_has_light(button) {
-                                        lights.set_button(button, Brightness::Off);
+                                        lights.set_button(button, Brightness::Dim);
                                         changed_lights = true;
                                     }
                                 }
@@ -561,19 +599,12 @@ fn main_loop(
                                 let _ = br;
                             }
                         } else {
-                            // Normal button MIDI
+                            // Normal button MIDI - keep lit dimly when not pressed
                             handle_button_midi(port, settings, &norm_map, button, status);
                             if lights.button_has_light(button) {
-                                let light_status = lights.get_button(button) != Brightness::Off;
-                                if status != light_status {
-                                    lights.set_button(
-                                        button,
-                                        if status {
-                                            Brightness::Normal
-                                        } else {
-                                            Brightness::Off
-                                        },
-                                    );
+                                let expected = if status { Brightness::Normal } else { Brightness::Dim };
+                                if lights.get_button(button) != expected {
+                                    lights.set_button(button, expected);
                                     changed_lights = true;
                                 }
                             }
@@ -589,7 +620,8 @@ fn main_loop(
                 handle_encoder(port, settings, encoder_val);
             }
             let slider_val = buf[10];
-            if slider_val != 0 {
+            let slider_touched = slider_val != 0;
+            if slider_touched {
                 println!("Slider: {}", slider_val);
                 let cnt = (slider_val as i32 - 1 + 5) * 25 / 200 - 1;
                 for i in 0..25 {
@@ -602,6 +634,17 @@ fn main_loop(
                 }
                 changed_lights = true;
                 handle_slider(port, settings, slider_val, strip_is_pitchbend);
+                prev_slider_touched = true;
+            } else if prev_slider_touched {
+                // strip released
+                if strip_is_pitchbend {
+                    handle_slider(port, settings, 0, true);
+                }
+                for i in 0..25 {
+                    lights.set_slider(i, Brightness::Dim);
+                }
+                changed_lights = true;
+                prev_slider_touched = false;
             }
         } else if buf[0] == 0x02 {
             // pad mode
@@ -642,16 +685,16 @@ fn main_loop(
                     }
                 }
 
-                // Normal pad handling
+                // Normal pad handling - keep pads lit dimly when not pressed (user request: all lit by default)
                 let (_, prev_b) = lights.get_pad(idx as usize);
                 let b = match pad_evt {
-                    PadEventType::NoteOn | PadEventType::PressOn => Brightness::Normal,
-                    PadEventType::NoteOff | PadEventType::PressOff => Brightness::Off,
+                    PadEventType::NoteOn | PadEventType::PressOn => Brightness::Bright,
+                    PadEventType::NoteOff | PadEventType::PressOff => Brightness::Dim,
                     PadEventType::Aftertouch => {
                         if val > 0 {
                             Brightness::Normal
                         } else {
-                            Brightness::Off
+                            Brightness::Dim
                         }
                     }
                     #[allow(unreachable_patterns)]

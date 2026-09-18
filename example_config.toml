@@ -1,5 +1,5 @@
-# Generated from Windows Controller Editor .ncc
-# Source: Mashine Mikro Config 2.ncc (latest, 16 groups)
+# Generated from Windows Controller Editor .ncc + 16 scales (Chromatic..Iwato)
+# Source: Mashine Mikro Config 2.ncc (latest) + scales generated (base C2, 2 octaves, transposable)
 # Converted with ncc_to_config.py — edit as needed
 
 client_name = "Maschine Mikro MK3"
@@ -8,67 +8,55 @@ port_name = "Maschine Mikro MK3 MIDI Out"
 midi_channel = 0
 pad_channel = 9
 
-# Pad pages from Windows groups (in file order).
-# Driver idx order is permuted: idx0=top-left=Pad13, idx12=bottom-left=Pad1
+# Pad pages: 16 scales, driver idx order permuted so Pad1 bottom-left
 # Mapping: driver idx 0..15 -> Pad [13,14,15,16,12,11,10,9,8,7,6,5,1,2,3,4]
-# This makes Pad1 appear at bottom (where hardware has 1) and Pad16 at top,
-# giving sequential chromatic left->right bottom->top physically.
+# Transpose (Left/Right semitone, Shift+Left/Right octave) shifts entire scale.
 pad_pages = [
-  # Micro Drum Sampler
-  [49, 57, 51, 53, 43, 45, 48, 50, 44, 46, 40, 38, 37, 36, 42, 39],
-  # C0
-  [36, 37, 38, 39, 32, 33, 34, 35, 28, 29, 30, 31, 24, 25, 26, 27],
-  # C1
+  # Chromatic
   [48, 49, 50, 51, 44, 45, 46, 47, 40, 41, 42, 43, 36, 37, 38, 39],
-  # C2
-  [60, 61, 62, 63, 56, 57, 58, 59, 52, 53, 54, 55, 48, 49, 50, 51],
-  # C3
-  [72, 73, 74, 75, 68, 69, 70, 71, 64, 65, 66, 67, 60, 61, 62, 63],
-  # C4
-  [84, 85, 86, 87, 80, 81, 82, 83, 76, 77, 78, 79, 72, 73, 74, 75],
-  # C5
-  [96, 97, 98, 99, 92, 93, 94, 95, 88, 89, 90, 91, 84, 85, 86, 87],
-  # C6
-  [108, 109, 110, 111, 104, 105, 106, 107, 100, 101, 102, 103, 96, 97, 98, 99],
-  # Major 2 octaves (C2-C4, driver idx order permuted: Pad1 bottom)
+  # Major
   [57, 59, 60, 62, 50, 52, 53, 55, 43, 45, 47, 48, 36, 38, 40, 41],
-  # Harmonic Minor 2 octaves
-  [56, 59, 60, 62, 50, 51, 53, 55, 43, 44, 47, 48, 36, 38, 39, 41],
-  # Melodic Minor 2 octaves
-  [57, 59, 60, 62, 50, 51, 53, 55, 43, 45, 47, 48, 36, 38, 39, 41],
-  # Minor Blues 2 octaves (hexatonic, 6 notes per octave)
-  [60, 63, 65, 66, 53, 54, 55, 58, 43, 46, 48, 51, 36, 39, 41, 42],
-  # Natural Minor 2 octaves
+  # Minor
   [56, 58, 60, 62, 50, 51, 53, 55, 43, 44, 46, 48, 36, 38, 39, 41],
-  # Dorian 2 octaves
+  # Dorian
   [57, 58, 60, 62, 50, 51, 53, 55, 43, 45, 46, 48, 36, 38, 39, 41],
-  # Mixolydian 2 octaves
+  # Mixolydian
   [57, 58, 60, 62, 50, 52, 53, 55, 43, 45, 46, 48, 36, 38, 40, 41],
-  # Phrygian 2 octaves
+  # Phrygian
   [56, 58, 60, 61, 49, 51, 53, 55, 43, 44, 46, 48, 36, 37, 39, 41],
+  # Lydian
+  [57, 59, 60, 62, 50, 52, 54, 55, 43, 45, 47, 48, 36, 38, 40, 42],
+  # Harmonic Minor
+  [56, 59, 60, 62, 50, 51, 53, 55, 43, 44, 47, 48, 36, 38, 39, 41],
+  # Melodic Minor
+  [57, 59, 60, 62, 50, 51, 53, 55, 43, 45, 47, 48, 36, 38, 39, 41],
+  # Double Harmonic
+  [56, 59, 60, 61, 49, 52, 53, 55, 43, 44, 47, 48, 36, 37, 40, 41],
+  # Minor Pentatonic
+  [65, 67, 70, 72, 55, 58, 60, 63, 46, 48, 51, 53, 36, 39, 41, 43],
+  # Minor Blues
+  [60, 63, 65, 66, 53, 54, 55, 58, 43, 46, 48, 51, 36, 39, 41, 42],
+  # Hungarian Minor
+  [56, 59, 60, 62, 50, 51, 54, 55, 43, 44, 47, 48, 36, 38, 39, 42],
+  # Hirajoshi
+  [63, 67, 68, 72, 55, 56, 60, 62, 44, 48, 50, 51, 36, 38, 39, 43],
+  # In Sen
+  [65, 67, 70, 72, 55, 58, 60, 61, 46, 48, 49, 53, 36, 37, 41, 43],
+  # Iwato
+  [65, 66, 70, 72, 54, 58, 60, 61, 46, 48, 49, 53, 36, 37, 41, 42],
 ]
 
 pad_page_button = "Group"
 pad_page_hold_select = true
 pad_aftertouch = "poly"
 
-# Transpose: shift all pad notes globally, so one chromatic page + transpose
-# replaces many chromatic pages. Buttons here are reserved (no MIDI) and
-# adjust transpose offset (-48..+48, clamped). Screen shows T±n.
-# Mapping: Left (-1) / Right (+1) by semitone, Shift+Left/Right by octave.
-# Pitch/Mod are now strip toggles (Pitch=pitchbend, Mod=modwheel) – see below.
-# With transpose, you need not keep all C0-C6 – keep 1-2 chromatic pages
-# (e.g. C2) and free the rest for drums/scales. Example below keeps
-# chromatic till page 8 (as you have), but you can delete C0-C6 extras
-# and keep just Micro + C2 + scales.
+# Transpose: Left/Right semitone, Shift+Left/Right octave, Pitch/Mod free for strip toggle
 [transpose]
-semitone_up = "Right"   # +1 semitone (Right = up, fixed reverse)
-semitone_down = "Left"  # -1 semitone (Left = down)
-octave_up = ""          # handled via Shift+Right (+12)
-octave_down = ""        # handled via Shift+Left (-12)
-reset = ""              # e.g. "Shift" to reset to 0, empty = disabled
-# Shift+Left/Right automatically becomes octave when Shift held
-# Strip toggle: Pitch = pitchbend, Mod = modwheel (original Maschine, latched LEDs)
+semitone_up = "Right"
+semitone_down = "Left"
+octave_up = ""
+octave_down = ""
+reset = ""
 
 # Encoder (Navigation wheel) and Slider (Touchstrip) from Windows
 [encoder]
@@ -81,6 +69,7 @@ cc = 1
 type = "cc"
 mode = "absolute"
 
+# Buttons from Windows Config 2 (Pitch/Mod now strip toggles, Left/Right transpose)
 [buttons]
 Auto = { type = "cc", cc = 35 }
 Browse = { type = "cc", cc = 40 }
@@ -125,4 +114,3 @@ Volume = { type = "cc", cc = 44 }
 # Right = { type = "cc", cc = 0 }
 # Shift = { type = "cc", cc = 0 }
 # EncoderTouch = { type = "cc", cc = 0 }
-
