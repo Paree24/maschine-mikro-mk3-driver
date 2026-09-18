@@ -577,6 +577,8 @@ fn main_loop(
     let mut auto_page_selected_via_pad = false;
     let mut lock_page_holding = false;
     let mut lock_page_selected_via_pad = false;
+    let mut padmode_page_holding = false;
+    let mut padmode_selected_via_pad = false;
     let mut chords_active = false;
     let mut tetrad_active = false;
     let mut step_tetrad_active = false;
@@ -1043,12 +1045,65 @@ fn main_loop(
                         } else if !status && button == Buttons::Perform {
                             // keep LED latched (3-way toggle: release does not change mode)
                         } else if button == Buttons::PadMode {
+                            // PadMode as page button for 49-64 (49th page = index 48) like Auto/Lock, plus gate for drums
                             padmode_held = status;
-                            if lights.button_has_light(Buttons::PadMode) {
-                                lights.set_button(Buttons::PadMode, if status { Brightness::Bright } else { Brightness::Dim });
-                                changed_lights = true;
+                            if total_pages > 48 {
+                                if settings.pad_page_hold_select {
+                                    if status {
+                                        padmode_page_holding = true;
+                                        padmode_selected_via_pad = false;
+                                        if lights.button_has_light(Buttons::PadMode) {
+                                            lights.set_button(Buttons::PadMode, Brightness::Bright);
+                                            changed_lights = true;
+                                        }
+                                        println!("PadMode gate -> on (16 drum pages 49-64) + hold");
+                                    } else {
+                                        padmode_page_holding = false;
+                                        if !padmode_selected_via_pad {
+                                            let base = 48;
+                                            let count = (16).min(total_pages - base);
+                                            if count > 0 {
+                                                let rel = if current_page >= base { current_page - base } else { 0 };
+                                                let next = (rel + 1) % count;
+                                                current_page = base + next;
+                                                page_changed = true;
+                                                println!("Pad page cycled (PadMode) -> {}/{} (49th page = 49)", current_page + 1, total_pages);
+                                            }
+                                        }
+                                        padmode_selected_via_pad = false;
+                                        if lights.button_has_light(Buttons::PadMode) {
+                                            lights.set_button(Buttons::PadMode, Brightness::Dim);
+                                            changed_lights = true;
+                                        }
+                                        println!("PadMode gate -> off");
+                                    }
+                                } else if status {
+                                    let base = 48;
+                                    let count = (16).min(total_pages - base);
+                                    if count > 0 {
+                                        let rel = if current_page >= base { current_page - base } else { 0 };
+                                        let next = (rel + 1) % count;
+                                        current_page = base + next;
+                                        page_changed = true;
+                                        println!("Pad page (PadMode) -> {}/{} (49th page = 49)", current_page + 1, total_pages);
+                                    }
+                                    if lights.button_has_light(Buttons::PadMode) {
+                                        lights.set_button(Buttons::PadMode, Brightness::Bright);
+                                        changed_lights = true;
+                                    }
+                                } else {
+                                    if lights.button_has_light(Buttons::PadMode) {
+                                        lights.set_button(Buttons::PadMode, Brightness::Dim);
+                                        changed_lights = true;
+                                    }
+                                }
+                            } else {
+                                if lights.button_has_light(Buttons::PadMode) {
+                                    lights.set_button(Buttons::PadMode, if status { Brightness::Bright } else { Brightness::Dim });
+                                    changed_lights = true;
+                                }
+                                println!("PadMode gate -> {}", if status { "on (16 drum pages)" } else { "off" });
                             }
-                            println!("PadMode gate -> {}", if status { "on (16 drum pages)" } else { "off" });
                         } else if button == Buttons::Scene {
                             scene_held = status;
                             if lights.button_has_light(Buttons::Scene) {
@@ -1155,10 +1210,9 @@ fn main_loop(
                                     auto_page_holding = false;
                                     if !auto_page_selected_via_pad {
                                         let base = 16;
-                                        let count = total_pages - base;
+                                        let count = std::cmp::min(16, total_pages - base);
                                         if count > 0 {
-                                            let rel = if current_page >= base { current_page - base } else { 0 };
-                                            let next = (rel + 1) % count;
+                                            let next = if current_page < base || current_page >= base + count { 0 } else { (current_page - base + 1) % count };
                                             current_page = base + next;
                                             page_changed = true;
                                             println!("Pad page cycled (Auto) -> {}/{}", current_page + 1, total_pages);
@@ -1172,10 +1226,9 @@ fn main_loop(
                                 }
                             } else if status {
                                 let base = 16;
-                                let count = total_pages - base;
+                                let count = std::cmp::min(16, total_pages - base);
                                 if count > 0 {
-                                    let rel = if current_page >= base { current_page - base } else { 0 };
-                                    let next = (rel + 1) % count;
+                                    let next = if current_page < base || current_page >= base + count { 0 } else { (current_page - base + 1) % count };
                                     current_page = base + next;
                                     page_changed = true;
                                     println!("Pad page (Auto) -> {}/{}", current_page + 1, total_pages);
@@ -1195,10 +1248,9 @@ fn main_loop(
                                     lock_page_holding = false;
                                     if !lock_page_selected_via_pad {
                                         let base = 32;
-                                        let count = total_pages - base;
+                                        let count = std::cmp::min(16, total_pages - base);
                                         if count > 0 {
-                                            let rel = if current_page >= base { current_page - base } else { 0 };
-                                            let next = (rel + 1) % count;
+                                            let next = if current_page < base || current_page >= base + count { 0 } else { (current_page - base + 1) % count };
                                             current_page = base + next;
                                             page_changed = true;
                                             println!("Pad page cycled (Lock) -> {}/{}", current_page + 1, total_pages);
@@ -1212,10 +1264,9 @@ fn main_loop(
                                 }
                             } else if status {
                                 let base = 32;
-                                let count = total_pages - base;
+                                let count = std::cmp::min(16, total_pages - base);
                                 if count > 0 {
-                                    let rel = if current_page >= base { current_page - base } else { 0 };
-                                    let next = (rel + 1) % count;
+                                    let next = if current_page < base || current_page >= base + count { 0 } else { (current_page - base + 1) % count };
                                     current_page = base + next;
                                     page_changed = true;
                                     println!("Pad page (Lock) -> {}/{}", current_page + 1, total_pages);
@@ -1378,8 +1429,8 @@ fn main_loop(
                 };
                 println!("Pad {}: {:?} @ {} (page {})", idx, pad_evt, val, current_page);
 
-                // PadMode+Pad for drum pages 48-63 (16 fresh) - gate unlocks
-                if padmode_held && settings.pad_page_hold_select && total_pages > 48 {
+                // PadMode+Pad for drum pages 48-63 (16 fresh) - gate unlocks, like Auto/Lock for 49th page
+                if padmode_page_holding && settings.pad_page_hold_select && total_pages > 48 {
                     match pad_evt {
                         PadEventType::NoteOn | PadEventType::PressOn => {
                             let page_idx = 48 + idx as usize;
@@ -1387,7 +1438,10 @@ fn main_loop(
                                 if page_idx != current_page {
                                     current_page = page_idx;
                                     page_changed = true;
-                                    println!("Pad page selected via PadMode+pad {} -> {}/{}", idx, current_page + 1, total_pages);
+                                    padmode_selected_via_pad = true;
+                                    println!("Pad page selected via PadMode+pad {} -> {}/{} (49th page)", idx, current_page + 1, total_pages);
+                                } else {
+                                    padmode_selected_via_pad = true;
                                 }
                             }
                             continue;
