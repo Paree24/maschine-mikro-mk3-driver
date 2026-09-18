@@ -52,6 +52,20 @@ pad_page_button = "Group"
 pad_page_hold_select = true
 pad_aftertouch = "poly"
 
+# Transpose: shift all pad notes globally, so one chromatic page + transpose
+# replaces many chromatic pages. Buttons here are reserved (no MIDI) and
+# adjust transpose offset (-48..+48, clamped). Screen shows T±n.
+# With transpose, you need not keep all C0-C6 – keep 1-2 chromatic pages
+# (e.g. C2) and free the rest for drums/scales. Example below keeps
+# chromatic till page 8 (as you have), but you can delete C0-C6 extras
+# and keep just Micro + C2 + scales.
+[transpose]
+semitone_up = "Pitch"   # +1 semitone
+semitone_down = "Mod"   # -1 semitone
+octave_up = "Left"      # +12
+octave_down = "Right"   # -12
+reset = ""              # e.g. "Shift" to reset to 0, empty = disabled
+
 # Encoder (Navigation wheel) and Slider (Touchstrip) from Windows
 [encoder]
 cc = 7

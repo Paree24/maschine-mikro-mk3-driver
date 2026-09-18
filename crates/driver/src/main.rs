@@ -114,6 +114,35 @@ fn is_pad_page_button(settings: &Settings, button: Buttons) -> bool {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+enum TransposeAction {
+    SemitoneUp,
+    SemitoneDown,
+    OctaveUp,
+    OctaveDown,
+    Reset,
+}
+
+fn transpose_action(settings: &Settings, button: Buttons) -> Option<TransposeAction> {
+    let name = button_debug_name(button);
+    if !settings.transpose.semitone_up.trim().is_empty() && name.eq_ignore_ascii_case(settings.transpose.semitone_up.trim()) {
+        return Some(TransposeAction::SemitoneUp);
+    }
+    if !settings.transpose.semitone_down.trim().is_empty() && name.eq_ignore_ascii_case(settings.transpose.semitone_down.trim()) {
+        return Some(TransposeAction::SemitoneDown);
+    }
+    if !settings.transpose.octave_up.trim().is_empty() && name.eq_ignore_ascii_case(settings.transpose.octave_up.trim()) {
+        return Some(TransposeAction::OctaveUp);
+    }
+    if !settings.transpose.octave_down.trim().is_empty() && name.eq_ignore_ascii_case(settings.transpose.octave_down.trim()) {
+        return Some(TransposeAction::OctaveDown);
+    }
+    if !settings.transpose.reset.trim().is_empty() && name.eq_ignore_ascii_case(settings.transpose.reset.trim()) {
+        return Some(TransposeAction::Reset);
+    }
+    None
+}
+
 fn lookup_button_config<'a>(
     norm_map: &'a HashMap<String, crate::settings::ButtonConfig>,
     button: Buttons,
@@ -131,23 +160,20 @@ fn normalized_button_map(settings: &Settings) -> HashMap<String, crate::settings
 }
 
 fn update_screen(screen: &mut Screen, device: &HidDevice, page: usize, total: usize) -> HidResult<()> {
+    update_screen_with_transpose(screen, device, page, total, 0)
+}
+
+fn update_screen_with_transpose(screen: &mut Screen, device: &HidDevice, page: usize, total: usize, transpose: i32) -> HidResult<()> {
     screen.reset();
-    // Show "P:x/y" with large digits where possible
-    // Use small helper: write page number at col 0, total at col 64
-    // We have Font::write_digit that writes 8x8 scaled.
-    // Show page+1 (1-indexed) as human readable
+    // Show "P:x/y" with large digits
     let display_page = page + 1;
     let display_total = total;
-    // simple: write page and total as digits around middle
-    // Page indicator at x=20, total at x=90
     if display_page < 10 {
         Font::write_digit(screen, 8, 20, display_page % 10, 3);
     } else {
         Font::write_digit(screen, 8, 8, display_page / 10, 2);
         Font::write_digit(screen, 8, 32, display_page % 10, 2);
     }
-    // slash
-    // draw slash manually: diagonal
     for i in 0..16 {
         screen.set(10 + i, 58 + i / 2, true);
         screen.set(11 + i, 58 + i / 2, true);
@@ -158,8 +184,37 @@ fn update_screen(screen: &mut Screen, device: &HidDevice, page: usize, total: us
         Font::write_digit(screen, 8, 72, display_total / 10, 2);
         Font::write_digit(screen, 8, 92, display_total % 10, 2);
     }
-    // label "PAGE" on top row small (using 1x scale)
-    // We'll just leave digits; header implies page
+    // Show transpose offset at top-right small if non-zero: T+12 etc
+    if transpose != 0 {
+        let sign = if transpose > 0 { 1 } else { 0 };
+        // crude: draw a tiny indicator – use first row pixels to show +/- and value
+        // Just set a few pixels as marker: top edge bar for transpose active
+        for x in 100..126 {
+            screen.set(2, x, true);
+            screen.set(3, x, true);
+        }
+        // Show transpose value as digit(s) at top
+        let abs_t = transpose.abs() as usize;
+        if abs_t < 10 {
+            Font::write_digit(screen, 0, 110, abs_t % 10, 1);
+        } else {
+            Font::write_digit(screen, 0, 100, (abs_t / 10) % 10, 1);
+            Font::write_digit(screen, 0, 110, abs_t % 10, 1);
+        }
+        if sign == 1 {
+            // plus sign
+            for i in 0..6 {
+                screen.set(2 + i, 100, true);
+            }
+            for i in 0..6 {
+                screen.set(4, 97 + i, true);
+            }
+        } else {
+            for i in 0..6 {
+                screen.set(4, 97 + i, true);
+            }
+        }
+    }
     screen.write(device)
 }
 
@@ -335,6 +390,7 @@ fn main_loop(
     let mut page_selected_via_pad = false;
     let mut button_prev = [false; 64];
     let norm_map = normalized_button_map(settings);
+    let mut transpose_offset: i32 = 0;
 
     // For auto-clearing page selector LEDs
     let mut selector_active = false;
@@ -403,8 +459,38 @@ fn main_loop(
                             println!("Button release: {:?}", button);
                         }
 
-                        // Handle pad page button specially
-                        if is_pad_page_button(settings, button) && total_pages > 1 {
+                        // Transpose handling (reserved, no MIDI)
+                        if let Some(action) = transpose_action(settings, button) {
+                            if status {
+                                let delta = match action {
+                                    TransposeAction::SemitoneUp => 1,
+                                    TransposeAction::SemitoneDown => -1,
+                                    TransposeAction::OctaveUp => 12,
+                                    TransposeAction::OctaveDown => -12,
+                                    TransposeAction::Reset => -transpose_offset,
+                                };
+                                let new_off = (transpose_offset + delta).clamp(-48, 48);
+                                if new_off != transpose_offset {
+                                    transpose_offset = new_off;
+                                    println!("Transpose {:?} -> {}", action, transpose_offset);
+                                    // update screen to show transpose
+                                    let _ = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset);
+                                    // brief flash of pad colors to indicate transpose? Keep selector active
+                                } else if matches!(action, TransposeAction::Reset) {
+                                    println!("Transpose reset");
+                                    let _ = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset);
+                                }
+                                if lights.button_has_light(button) {
+                                    lights.set_button(button, Brightness::Bright);
+                                    changed_lights = true;
+                                }
+                            } else {
+                                if lights.button_has_light(button) {
+                                    lights.set_button(button, Brightness::Off);
+                                    changed_lights = true;
+                                }
+                            }
+                        } else if is_pad_page_button(settings, button) && total_pages > 1 {
                             if settings.pad_page_hold_select {
                                 if status {
                                     // press -> start holding
@@ -438,11 +524,8 @@ fn main_loop(
                                 }
                             }
                             // Don't send MIDI for the paging button itself (reserved)
-                            // Update light for paging button elsewhere
                             if lights.button_has_light(button) && !settings.pad_page_hold_select {
                                 let br = if current_page == 0 { Brightness::Off } else { Brightness::Normal };
-                                // generic feedback: indicate page >0 lit
-                                // but we already handle via page_changed below
                                 let _ = br;
                             }
                         } else {
@@ -564,12 +647,13 @@ fn main_loop(
                     changed_lights = true;
                 }
 
-                // Resolve note for current page
+                // Resolve note for current page with transpose
                 let notes = &pad_pages[current_page];
                 if (idx as usize) >= notes.len() {
                     continue;
                 }
-                let note = notes[idx as usize];
+                let base = notes[idx as usize] as i32;
+                let note = ((base + transpose_offset).clamp(0, 127)) as u8;
                 let mut velocity = (val >> 5) as u8;
                 if val > 0 && velocity == 0 {
                     velocity = 1;
@@ -640,7 +724,7 @@ fn main_loop(
             changed_lights = true;
             selector_active = true;
             selector_since = Some(Instant::now());
-            if let Err(e) = update_screen(screen, device, current_page, total_pages) {
+            if let Err(e) = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset) {
                 eprintln!("screen update failed: {:?}", e);
             }
         }

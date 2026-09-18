@@ -35,6 +35,18 @@ fn default_slider_mode() -> String {
 fn default_aftertouch() -> String {
     "off".to_string()
 }
+fn default_transpose_up() -> String {
+    "Pitch".to_string()
+}
+fn default_transpose_down() -> String {
+    "Mod".to_string()
+}
+fn default_octave_up() -> String {
+    "Left".to_string()
+}
+fn default_octave_down() -> String {
+    "Right".to_string()
+}
 
 #[derive(Deserialize, Debug, Clone)]
 pub(crate) struct ButtonConfig {
@@ -111,6 +123,32 @@ impl Default for SliderConfig {
     }
 }
 
+#[derive(Deserialize, Debug, Clone)]
+pub(crate) struct TransposeConfig {
+    #[serde(default = "default_transpose_up")]
+    pub semitone_up: String,
+    #[serde(default = "default_transpose_down")]
+    pub semitone_down: String,
+    #[serde(default = "default_octave_up")]
+    pub octave_up: String,
+    #[serde(default = "default_octave_down")]
+    pub octave_down: String,
+    #[serde(default)]
+    pub reset: String,
+}
+
+impl Default for TransposeConfig {
+    fn default() -> Self {
+        Self {
+            semitone_up: default_transpose_up(),
+            semitone_down: default_transpose_down(),
+            octave_up: default_octave_up(),
+            octave_down: default_octave_down(),
+            reset: String::new(),
+        }
+    }
+}
+
 #[derive(Deserialize, Debug)]
 pub(crate) struct Settings {
     // legacy: single page notemap (kept for backward compat)
@@ -163,6 +201,9 @@ pub(crate) struct Settings {
 
     #[serde(default)]
     pub slider: SliderConfig,
+
+    #[serde(default)]
+    pub transpose: TransposeConfig,
 }
 
 fn default_hold_select() -> bool {
@@ -188,6 +229,7 @@ impl Default for Settings {
             buttons: default_buttons(),
             encoder: EncoderConfig::default(),
             slider: SliderConfig::default(),
+            transpose: TransposeConfig::default(),
         }
     }
 }
@@ -396,6 +438,34 @@ impl Settings {
             }
         }
 
+        for (field, val) in [
+            ("transpose.semitone_up", &self.transpose.semitone_up),
+            ("transpose.semitone_down", &self.transpose.semitone_down),
+            ("transpose.octave_up", &self.transpose.octave_up),
+            ("transpose.octave_down", &self.transpose.octave_down),
+            ("transpose.reset", &self.transpose.reset),
+        ] {
+            let s = val.trim();
+            if !s.is_empty() && Self::parse_button_name(s).is_none() {
+                return Err(format!("{field} = \"{s}\" is not a valid button name"));
+            }
+        }
+
         Ok(())
+    }
+
+    fn parse_button_name(s: &str) -> Option<()> {
+        let valid = [
+            "Maschine","Star","Browse","Volume","Swing","Tempo","Plugin","Sampling",
+            "Left","Right","Pitch","Mod","Perform","Notes","Group","Auto","Lock","NoteRepeat",
+            "Restart","Erase","Tap","Follow","Play","Rec","Stop","Shift","FixedVol","PadMode",
+            "Keyboard","Chords","Step","Scene","Pattern","Events","Variation","Duplicate",
+            "Select","Solo","Mute","EncoderPress","EncoderTouch",
+        ];
+        if valid.iter().any(|v| v.eq_ignore_ascii_case(s)) {
+            Some(())
+        } else {
+            None
+        }
     }
 }
