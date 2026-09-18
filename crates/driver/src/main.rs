@@ -584,6 +584,10 @@ fn main_loop(
     let mut arp_rate: Duration = Duration::from_secs_f32(60.0/120.0 * 0.25); // 1/16 at 120bpm
     let mut arp_rate_name = "1/16".to_string();
     let mut arp_octaves: usize = 1;
+    const ARP_SWING: &[(&str, f32)] = &[("Straight",50.0), ("Light",55.0), ("Medium",60.0), ("Triplet",66.7)];
+    let mut arp_swing_idx: usize = 0;
+    let mut arp_swing_percent: f32 = 50.0;
+    let mut arp_swing_name = "Straight".to_string();
     let mut held_arp_notes: Vec<Vec<u8>> = Vec::new();
     let mut arp_pos: usize = 0;
     let mut arp_dir: i32 = 1;
@@ -635,8 +639,13 @@ fn main_loop(
 
     let mut buf = [0u8; 64];
     loop {
-        // Arp tick - always synced to clock, even without HID data - cyclic octaves (C1 G1 C2 G2 for Up)
-        if arp_enabled && !held_arp_notes.is_empty() && arp_last_tick.elapsed() >= arp_rate {
+        // Arp tick - swing-aware interval (Straight 50 / Light 55 / Medium 60 / Triplet 66.7)
+        let arp_interval = if arp_swing_percent == 50.0 { arp_rate } else {
+            let is_long = arp_pos % 2 == 0;
+            let factor = if is_long { arp_swing_percent / 50.0 } else { (100.0 - arp_swing_percent) / 50.0 };
+            arp_rate.mul_f32(factor)
+        };
+        if arp_enabled && !held_arp_notes.is_empty() && arp_last_tick.elapsed() >= arp_interval {
             if let Some(prev) = arp_current_notes.take() {
                 for n in &prev { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOff { key: (*n).into(), vel: 0.into() }); }
             }
@@ -722,8 +731,13 @@ fn main_loop(
                 }
             }
         }
-        // Arp tick - clock-synced, cyclic octaves (C1 G1 C2 G2 for Up)
-        if arp_enabled && !held_arp_notes.is_empty() && arp_last_tick.elapsed() >= arp_rate {
+        // Arp tick - clock-synced with swing
+        let arp_interval2 = if arp_swing_percent == 50.0 { arp_rate } else {
+            let is_long = arp_pos % 2 == 0;
+            let factor = if is_long { arp_swing_percent / 50.0 } else { (100.0 - arp_swing_percent) / 50.0 };
+            arp_rate.mul_f32(factor)
+        };
+        if arp_enabled && !held_arp_notes.is_empty() && arp_last_tick.elapsed() >= arp_interval2 {
             if let Some(prev) = arp_current_notes.take() {
                 for n in &prev { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOff { key: (*n).into(), vel: 0.into() }); }
             }
@@ -935,6 +949,24 @@ fn main_loop(
                         } else if !status && button == Buttons::Sampling && arp_enabled {
                             if lights.button_has_light(Buttons::Sampling) {
                                 lights.set_button(Buttons::Sampling, Brightness::Dim);
+                                changed_lights = true;
+                            }
+                        } else if status && button == Buttons::Swing {
+                            arp_swing_idx = (arp_swing_idx + 1) % ARP_SWING.len();
+                            let (name, pct) = ARP_SWING[arp_swing_idx];
+                            arp_swing_name = name.to_string();
+                            arp_swing_percent = pct;
+                            println!("Swing -> {} {}%", arp_swing_name, arp_swing_percent);
+                            if lights.button_has_light(Buttons::Swing) {
+                                lights.set_button(Buttons::Swing, Brightness::Bright);
+                                changed_lights = true;
+                            }
+                            if arp_enabled {
+                                let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
+                            }
+                        } else if !status && button == Buttons::Swing {
+                            if lights.button_has_light(Buttons::Swing) {
+                                lights.set_button(Buttons::Swing, Brightness::Dim);
                                 changed_lights = true;
                             }
                         } else if status && button == Buttons::FixedVol {
