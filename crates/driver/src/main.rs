@@ -123,45 +123,51 @@ fn is_auto_page_button(settings: &Settings, button: Buttons) -> bool {
     }
 }
 
-// Build diatonic triad for current scale page: root, third (2 scale degrees up), fifth (4 up)
-// Works for 7-note scales and pentatonic (wraps with octave). Transpose applied afterwards.
+// Build diatonic triad: pad 1,3,5 for 7-degree scales, pentatonic handled
+// pad_notes is driver idx order permuted; convert to phys sequential first
 fn triad_for_pad(pad_notes: &[u8], idx: usize, transpose: i32) -> Vec<u8> {
     if pad_notes.is_empty() || idx >= pad_notes.len() {
         return vec![];
     }
-    // Derive scale intervals from first octave of pad_notes (first 7 distinct notes)
-    // For chromatic, intervals are 0..11, but we treat as 12-tone
-    // For scales, derive intervals by sorting first 7 notes relative to base
-    let base = pad_notes[0] as i32;
-    // Build intervals by taking first 7 notes' offsets, sorted
+    // Convert driver idx order to phys sequential order (bottom->top left->right)
+    // driver idx -> Pad: [13,14,15,16,12,11,10,9,8,7,6,5,1,2,3,4]
+    // phys[0]=Pad1 bottom-left = driver[12], etc.
+    // So phys = [driver[12],driver[13],driver[14],driver[15],driver[11],driver[10],driver[9],driver[8],driver[7],driver[6],driver[5],driver[4],driver[0],driver[1],driver[2],driver[3]]
+    let to_phys = |driver: &[u8]| -> Vec<u8> {
+        if driver.len() < 16 { return driver.to_vec(); }
+        vec![
+            driver[12], driver[13], driver[14], driver[15],
+            driver[11], driver[10], driver[9], driver[8],
+            driver[7], driver[6], driver[5], driver[4],
+            driver[0], driver[1], driver[2], driver[3],
+        ]
+    };
+    let phys = to_phys(pad_notes);
+    let base = phys[0] as i32;
+    // Derive intervals from first octave of phys (first up to 7 distinct <12)
     let mut intervals: Vec<i32> = Vec::new();
-    for i in 0..pad_notes.len().min(7) {
-        let off = pad_notes[i] as i32 - base;
-        // Only keep 0..11 range for first octave, deduplicate
-        if off >= 0 && off < 12 {
-            if !intervals.contains(&off) {
-                intervals.push(off);
-            }
+    for i in 0..phys.len().min(7) {
+        let off = phys[i] as i32 - base;
+        if off >= 0 && off < 12 && !intervals.contains(&off) {
+            intervals.push(off);
         }
     }
     intervals.sort_unstable();
     if intervals.is_empty() {
         intervals = vec![0,2,4,5,7,9,11];
     }
-    // For pentatonic (5 notes), intervals len 5, triad still works
+    // For pentatonic (5) etc, use its length
     let n = intervals.len() as i32;
-    let root_deg = idx as i32;
-    let root_oct = root_deg / n;
-    let root_mod = root_deg % n;
+    // Pad idx in driver order -> phys index
+    // Map driver idx to phys index
+    let driver_to_phys_idx = [12,13,14,15,11,10,9,8,7,6,5,4,0,1,2,3];
+    let phys_idx = driver_to_phys_idx[idx.min(15)] as i32;
+    let root_deg = phys_idx;
     let third_deg = root_deg + 2;
     let fifth_deg = root_deg + 4;
-    let third_oct = third_deg / n;
-    let third_mod = third_deg % n;
-    let fifth_oct = fifth_deg / n;
-    let fifth_mod = fifth_deg % n;
-    let root = base + root_oct * 12 + intervals[root_mod as usize];
-    let third = base + third_oct * 12 + intervals[third_mod as usize];
-    let fifth = base + fifth_oct * 12 + intervals[fifth_mod as usize];
+    let root = base + (root_deg / n) * 12 + intervals[(root_deg % n) as usize];
+    let third = base + (third_deg / n) * 12 + intervals[(third_deg % n) as usize];
+    let fifth = base + (fifth_deg / n) * 12 + intervals[(fifth_deg % n) as usize];
     vec![
         ((root + transpose).clamp(0,127)) as u8,
         ((third + transpose).clamp(0,127)) as u8,

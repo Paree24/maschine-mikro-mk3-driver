@@ -1,6 +1,5 @@
-# Generated from Windows Controller Editor .ncc + 16 scales (Chromatic..Iwato)
-# Source: Mashine Mikro Config 2.ncc (latest) + scales generated (base C2, 2 octaves, transposable)
-# Converted with ncc_to_config.py — edit as needed
+# 32 scales (16 base C1 + 16 up an octave C3) – Group 1-16, Auto 17-32, Chords triads 1-3-5
+# Converted from Windows Config 2 + scales (base C1, 2 octaves, transposable)
 
 client_name = "Maschine Mikro MK3"
 port_name = "Maschine Mikro MK3 MIDI Out"
@@ -8,73 +7,71 @@ port_name = "Maschine Mikro MK3 MIDI Out"
 midi_channel = 0
 pad_channel = 9
 
-# Pad pages: 16 scales, driver idx order permuted so Pad1 bottom-left
-# Mapping: driver idx 0..15 -> Pad [13,14,15,16,12,11,10,9,8,7,6,5,1,2,3,4]
-# Transpose (Left/Right semitone, Shift+Left/Right octave) shifts entire scale.
+# Pad pages: 32 scales, driver idx order permuted so Pad1 bottom-left
 pad_pages = [
   # Chromatic
-  [48, 49, 50, 51, 44, 45, 46, 47, 40, 41, 42, 43, 36, 37, 38, 39],
+  [36, 37, 38, 39, 32, 33, 34, 35, 28, 29, 30, 31, 24, 25, 26, 27],
   # Major
-  [57, 59, 60, 62, 50, 52, 53, 55, 43, 45, 47, 48, 36, 38, 40, 41],
+  [45, 47, 48, 50, 38, 40, 41, 43, 31, 33, 35, 36, 24, 26, 28, 29],
   # Minor
-  [56, 58, 60, 62, 50, 51, 53, 55, 43, 44, 46, 48, 36, 38, 39, 41],
+  [44, 46, 48, 50, 38, 39, 41, 43, 31, 32, 34, 36, 24, 26, 27, 29],
   # Dorian
-  [57, 58, 60, 62, 50, 51, 53, 55, 43, 45, 46, 48, 36, 38, 39, 41],
+  [45, 46, 48, 50, 38, 39, 41, 43, 31, 33, 34, 36, 24, 26, 27, 29],
   # Mixolydian
-  [57, 58, 60, 62, 50, 52, 53, 55, 43, 45, 46, 48, 36, 38, 40, 41],
+  [45, 46, 48, 50, 38, 40, 41, 43, 31, 33, 34, 36, 24, 26, 28, 29],
   # Phrygian
-  [56, 58, 60, 61, 49, 51, 53, 55, 43, 44, 46, 48, 36, 37, 39, 41],
+  [44, 46, 48, 49, 37, 39, 41, 43, 31, 32, 34, 36, 24, 25, 27, 29],
   # Lydian
-  [57, 59, 60, 62, 50, 52, 54, 55, 43, 45, 47, 48, 36, 38, 40, 42],
+  [45, 47, 48, 50, 38, 40, 42, 43, 31, 33, 35, 36, 24, 26, 28, 30],
   # Harmonic Minor
-  [56, 59, 60, 62, 50, 51, 53, 55, 43, 44, 47, 48, 36, 38, 39, 41],
+  [44, 47, 48, 50, 38, 39, 41, 43, 31, 32, 35, 36, 24, 26, 27, 29],
   # Melodic Minor
-  [57, 59, 60, 62, 50, 51, 53, 55, 43, 45, 47, 48, 36, 38, 39, 41],
+  [45, 47, 48, 50, 38, 39, 41, 43, 31, 33, 35, 36, 24, 26, 27, 29],
   # Double Harmonic
-  [56, 59, 60, 61, 49, 52, 53, 55, 43, 44, 47, 48, 36, 37, 40, 41],
+  [44, 47, 48, 49, 37, 40, 41, 43, 31, 32, 35, 36, 24, 25, 28, 29],
   # Minor Pentatonic
-  [65, 67, 70, 72, 55, 58, 60, 63, 46, 48, 51, 53, 36, 39, 41, 43],
+  [53, 55, 58, 60, 43, 46, 48, 51, 34, 36, 39, 41, 24, 27, 29, 31],
   # Minor Blues
-  [60, 63, 65, 66, 53, 54, 55, 58, 43, 46, 48, 51, 36, 39, 41, 42],
+  [48, 51, 53, 54, 41, 42, 43, 46, 31, 34, 36, 39, 24, 27, 29, 30],
   # Hungarian Minor
-  [56, 59, 60, 62, 50, 51, 54, 55, 43, 44, 47, 48, 36, 38, 39, 42],
+  [44, 47, 48, 50, 38, 39, 42, 43, 31, 32, 35, 36, 24, 26, 27, 30],
   # Hirajoshi
-  [63, 67, 68, 72, 55, 56, 60, 62, 44, 48, 50, 51, 36, 38, 39, 43],
+  [51, 55, 56, 60, 43, 44, 48, 50, 32, 36, 38, 39, 24, 26, 27, 31],
   # In Sen
-  [65, 67, 70, 72, 55, 58, 60, 61, 46, 48, 49, 53, 36, 37, 41, 43],
+  [53, 55, 58, 60, 43, 46, 48, 49, 34, 36, 37, 41, 24, 25, 29, 31],
   # Iwato
-  [65, 66, 70, 72, 54, 58, 60, 61, 46, 48, 49, 53, 36, 37, 41, 42],
-  # Chromatic Up (17-32, Auto+Pad)
+  [53, 54, 58, 60, 42, 46, 48, 49, 34, 36, 37, 41, 24, 25, 29, 30],
+  # Chromatic Up
   [60, 61, 62, 63, 56, 57, 58, 59, 52, 53, 54, 55, 48, 49, 50, 51],
-  # Major Up (17-32, Auto+Pad)
+  # Major Up
   [69, 71, 72, 74, 62, 64, 65, 67, 55, 57, 59, 60, 48, 50, 52, 53],
-  # Minor Up (17-32, Auto+Pad)
+  # Minor Up
   [68, 70, 72, 74, 62, 63, 65, 67, 55, 56, 58, 60, 48, 50, 51, 53],
-  # Dorian Up (17-32, Auto+Pad)
+  # Dorian Up
   [69, 70, 72, 74, 62, 63, 65, 67, 55, 57, 58, 60, 48, 50, 51, 53],
-  # Mixolydian Up (17-32, Auto+Pad)
+  # Mixolydian Up
   [69, 70, 72, 74, 62, 64, 65, 67, 55, 57, 58, 60, 48, 50, 52, 53],
-  # Phrygian Up (17-32, Auto+Pad)
+  # Phrygian Up
   [68, 70, 72, 73, 61, 63, 65, 67, 55, 56, 58, 60, 48, 49, 51, 53],
-  # Lydian Up (17-32, Auto+Pad)
+  # Lydian Up
   [69, 71, 72, 74, 62, 64, 66, 67, 55, 57, 59, 60, 48, 50, 52, 54],
-  # Harmonic Minor Up (17-32, Auto+Pad)
+  # Harmonic Minor Up
   [68, 71, 72, 74, 62, 63, 65, 67, 55, 56, 59, 60, 48, 50, 51, 53],
-  # Melodic Minor Up (17-32, Auto+Pad)
+  # Melodic Minor Up
   [69, 71, 72, 74, 62, 63, 65, 67, 55, 57, 59, 60, 48, 50, 51, 53],
-  # Double Harmonic Up (17-32, Auto+Pad)
+  # Double Harmonic Up
   [68, 71, 72, 73, 61, 64, 65, 67, 55, 56, 59, 60, 48, 49, 52, 53],
-  # Minor Pentatonic Up (17-32, Auto+Pad)
+  # Minor Pentatonic Up
   [77, 79, 82, 84, 67, 70, 72, 75, 58, 60, 63, 65, 48, 51, 53, 55],
-  # Minor Blues Up (17-32, Auto+Pad)
+  # Minor Blues Up
   [72, 75, 77, 78, 65, 66, 67, 70, 55, 58, 60, 63, 48, 51, 53, 54],
-  # Hungarian Minor Up (17-32, Auto+Pad)
+  # Hungarian Minor Up
   [68, 71, 72, 74, 62, 63, 66, 67, 55, 56, 59, 60, 48, 50, 51, 54],
-  # Hirajoshi Up (17-32, Auto+Pad)
+  # Hirajoshi Up
   [75, 79, 80, 84, 67, 68, 72, 74, 56, 60, 62, 63, 48, 50, 51, 55],
-  # In Sen Up (17-32, Auto+Pad)
+  # In Sen Up
   [77, 79, 82, 84, 67, 70, 72, 73, 58, 60, 61, 65, 48, 49, 53, 55],
-  # Iwato Up (17-32, Auto+Pad)
+  # Iwato Up
   [77, 78, 82, 84, 66, 70, 72, 73, 58, 60, 61, 65, 48, 49, 53, 54],
 ]
 
@@ -82,10 +79,8 @@ pad_page_button = "Group"
 auto_page_button = "Auto"
 pad_page_hold_select = true
 pad_aftertouch = "poly"
-# Chords: press Chords to toggle diatonic triads (root, third, fifth) of current scale; transpose shifts entire triad
-# Auto+Pad selects pages 17-32 (pad 0->page 17, etc.), Group+Pad selects 1-16; 32 is current hard limit (increase in settings.rs if needed)
 
-# Transpose: Left/Right semitone, Shift+Left/Right octave, Pitch/Mod free for strip toggle
+# Transpose: Left/Right semitone, Shift+Left/Right octave
 [transpose]
 semitone_up = "Right"
 semitone_down = "Left"
@@ -93,7 +88,7 @@ octave_up = ""
 octave_down = ""
 reset = ""
 
-# Encoder (Navigation wheel) and Slider (Touchstrip) from Windows
+# Encoder and Slider from Windows
 [encoder]
 cc = 7
 type = "cc"
@@ -104,7 +99,6 @@ cc = 1
 type = "cc"
 mode = "absolute"
 
-# Buttons from Windows Config 2 (Pitch/Mod now strip toggles, Left/Right transpose)
 [buttons]
 Auto = { type = "cc", cc = 35 }
 Browse = { type = "cc", cc = 40 }
@@ -144,8 +138,3 @@ Tempo = { type = "cc", cc = 48 }
 Variation = { type = "cc", cc = 88 }
 Volume = { type = "cc", cc = 44 }
 
-# Not mapped in Windows config (driver will use defaults if omitted):
-# Left = { type = "cc", cc = 0 }
-# Right = { type = "cc", cc = 0 }
-# Shift = { type = "cc", cc = 0 }
-# EncoderTouch = { type = "cc", cc = 0 }
