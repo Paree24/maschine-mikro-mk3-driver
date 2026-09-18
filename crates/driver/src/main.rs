@@ -559,6 +559,7 @@ fn main_loop(
     let mut arp_mode = ArpMode::Up;
     let mut arp_rate: Duration = Duration::from_secs_f32(60.0/120.0 * 0.25); // 1/16 at 120bpm
     let mut arp_rate_name = "1/16".to_string();
+    let mut arp_octaves: usize = 1;
     let mut held_arp_notes: Vec<Vec<u8>> = Vec::new();
     let mut arp_pos: usize = 0;
     let mut arp_dir: i32 = 1;
@@ -782,7 +783,6 @@ fn main_loop(
                             if lights.button_has_light(Buttons::NoteRepeat) {
                                 lights.set_button(Buttons::NoteRepeat, if arp_enabled { Brightness::Bright } else { Brightness::Dim });
                             }
-                            // clear held notes when disabling
                             if !arp_enabled {
                                 if let Some(notes) = arp_current_notes.take() {
                                     for n in notes { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOff { key: n.into(), vel: 0.into() }); }
@@ -793,12 +793,10 @@ fn main_loop(
                             }
                             changed_lights = true;
                         } else if !status && button == Buttons::NoteRepeat {
-                            // keep LED
                         } else if status && button == Buttons::Notes {
                             arp_mode = arp_mode.next();
                             println!("Arp mode -> {}", arp_mode.name());
                             if lights.button_has_light(Buttons::Notes) {
-                                // blink to indicate mode? keep Bright
                                 lights.set_button(Buttons::Notes, Brightness::Bright);
                             }
                             changed_lights = true;
@@ -806,6 +804,44 @@ fn main_loop(
                         } else if !status && button == Buttons::Notes {
                             if lights.button_has_light(Buttons::Notes) {
                                 lights.set_button(Buttons::Notes, Brightness::Dim);
+                                changed_lights = true;
+                            }
+                        } else if status && button == Buttons::Tempo && arp_enabled {
+                            // Tempo cycles arp rate 1/1 .. 1/64 dotted/triplet
+                            let rates = ["1/1","1/2","1/2.","1/2T","1/4","1/4.","1/4T","1/8","1/8.","1/8T","1/16","1/16.","1/16T","1/32","1/32.","1/32T","1/64","1/64.","1/64T"];
+                            let cur_idx = rates.iter().position(|&r| r == arp_rate_name).unwrap_or(10);
+                            let next_idx = (cur_idx + 1) % rates.len();
+                            let next_name = rates[next_idx];
+                            let beats = match next_name {
+                                "1/1" => 4.0, "1/2"=>2.0, "1/2."=>3.0, "1/2T"=>1.333,
+                                "1/4"=>1.0, "1/4."=>1.5, "1/4T"=>0.666,
+                                "1/8"=>0.5, "1/8."=>0.75, "1/8T"=>0.333,
+                                "1/16"=>0.25, "1/16."=>0.375, "1/16T"=>0.166,
+                                "1/32"=>0.125, "1/32."=>0.1875, "1/32T"=>0.0833,
+                                "1/64"=>0.0625, "1/64."=>0.09375, "1/64T"=>0.0417, _=>0.25
+                            };
+                            arp_rate = Duration::from_secs_f32(60.0/120.0 * beats);
+                            arp_rate_name = next_name.to_string();
+                            println!("Arp rate -> {} ({:?})", arp_rate_name, arp_rate);
+                            if lights.button_has_light(Buttons::Tempo) {
+                                lights.set_button(Buttons::Tempo, Brightness::Bright);
+                                changed_lights = true;
+                            }
+                        } else if !status && button == Buttons::Tempo && arp_enabled {
+                            if lights.button_has_light(Buttons::Tempo) {
+                                lights.set_button(Buttons::Tempo, Brightness::Dim);
+                                changed_lights = true;
+                            }
+                        } else if status && button == Buttons::Sampling && arp_enabled {
+                            arp_octaves = if arp_octaves >= 4 { 1 } else { arp_octaves + 1 };
+                            println!("Arp octaves -> {}", arp_octaves);
+                            if lights.button_has_light(Buttons::Sampling) {
+                                lights.set_button(Buttons::Sampling, Brightness::Bright);
+                                changed_lights = true;
+                            }
+                        } else if !status && button == Buttons::Sampling && arp_enabled {
+                            if lights.button_has_light(Buttons::Sampling) {
+                                lights.set_button(Buttons::Sampling, Brightness::Dim);
                                 changed_lights = true;
                             }
                         } else if status && button == Buttons::Chords {
@@ -1012,27 +1048,7 @@ fn main_loop(
             }
             let slider_val = buf[10];
             let slider_touched = slider_val != 0;
-            if arp_enabled && slider_touched {
-                // Strip controls arp rate when arp is on (1/1 to 1/64 dotted/triplet)
-                let (name, dur) = arp_rate_from_strip_raw(slider_val);
-                if dur != arp_rate {
-                    arp_rate = dur;
-                    arp_rate_name = name.clone();
-                    println!("Arp rate -> {} ({:?})", name, dur);
-                    let _ = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset);
-                }
-                let cnt = (slider_val as i32 - 1 + 5) * 25 / 200 - 1;
-                for i in 0..25 {
-                    let b = match cnt - i {
-                        0 => Brightness::Bright,
-                        1..=25 => Brightness::Dim,
-                        _ => Brightness::Off,
-                    };
-                    lights.set_slider(i as usize, b);
-                }
-                changed_lights = true;
-                prev_slider_touched = true;
-            } else if slider_touched {
+            if slider_touched {
                 println!("Slider: {}", slider_val);
                 let cnt = (slider_val as i32 - 1 + 5) * 25 / 200 - 1;
                 for i in 0..25 {
@@ -1138,24 +1154,30 @@ fn main_loop(
                 }
 
                 if arp_enabled {
-                    let scale_name = settings.scale_names.get(current_page).map(|s| s.as_str());
-                    let notes = triad_for_pad(&pad_pages[current_page], idx as usize, transpose_offset, scale_name, &settings.chord_types);
+                    let base = pad_pages[current_page][idx as usize] as i32;
+                    let root = ((base + transpose_offset).clamp(0,127)) as u8;
+                    // Generate notes for all octaves (1-4) for this held pad
+                    let mut notes_for_pad = Vec::new();
+                    for oct in 0..arp_octaves {
+                        let n = ((root as i32 + (oct as i32 * 12)).clamp(0,127)) as u8;
+                        notes_for_pad.push(n);
+                    }
                     match pad_evt {
                         PadEventType::NoteOn | PadEventType::PressOn => {
-                            for n in &notes {
+                            for n in &notes_for_pad {
                                 if !held_arp_notes.iter().any(|v| v[0] == *n) {
                                     held_arp_notes.push(vec![*n]);
                                 }
                             }
-                            println!("Arp held add {:?} -> held {}", notes, held_arp_notes.len());
+                            println!("Arp held add {:?} (oct {}) -> held {}", notes_for_pad, arp_octaves, held_arp_notes.len());
                             lights.set_pad(idx as usize, parse_pad_color(&settings.pad_page_colors.as_ref().and_then(|c| c.get(current_page)).unwrap_or(&"Blue".to_string())).unwrap_or(PadColors::Blue), Brightness::Normal);
                             changed_lights = true;
                         }
                         PadEventType::NoteOff | PadEventType::PressOff => {
-                            for n in &notes {
+                            for n in &notes_for_pad {
                                 held_arp_notes.retain(|v| v[0] != *n);
                             }
-                            println!("Arp held remove {:?} -> held {}", notes, held_arp_notes.len());
+                            println!("Arp held remove {:?} -> held {}", notes_for_pad, held_arp_notes.len());
                             if held_arp_notes.is_empty() {
                                 if let Some(cur) = arp_current_notes.take() {
                                     for n in cur { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOff { key: n.into(), vel: 0.into() }); }
