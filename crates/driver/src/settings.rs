@@ -36,16 +36,16 @@ fn default_aftertouch() -> String {
     "off".to_string()
 }
 fn default_transpose_up() -> String {
-    "Pitch".to_string()
+    "Right".to_string()
 }
 fn default_transpose_down() -> String {
-    "Mod".to_string()
-}
-fn default_octave_up() -> String {
     "Left".to_string()
 }
+fn default_octave_up() -> String {
+    "".to_string()
+}
 fn default_octave_down() -> String {
-    "Right".to_string()
+    "".to_string()
 }
 
 #[derive(Deserialize, Debug, Clone)]

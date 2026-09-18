@@ -440,6 +440,12 @@ fn main_loop(
 
         if buf[0] == 0x01 {
             // button mode
+            // Shift held for transpose octave (Shift+Left/Right)
+            let shift_idx = Buttons::Shift as usize;
+            let shift_byte = shift_idx / 8 + 1;
+            let shift_bit = 1 << (shift_idx % 8);
+            let shift_held_current = (buf[shift_byte] & shift_bit) != 0;
+            let shift_held = shift_held_current || button_prev[shift_idx];
             for i in 0..6 {
                 for j in 0..8 {
                     let idx = i * 8 + j;
@@ -460,11 +466,12 @@ fn main_loop(
                         }
 
                         // Transpose handling (reserved, no MIDI)
+                        // Left/Right by 1 semitone, Shift+Left/Right by 1 octave (vertical flip fixed: Right=up, Left=down)
                         if let Some(action) = transpose_action(settings, button) {
                             if status {
                                 let delta = match action {
-                                    TransposeAction::SemitoneUp => 1,
-                                    TransposeAction::SemitoneDown => -1,
+                                    TransposeAction::SemitoneUp => if shift_held { 12 } else { 1 },
+                                    TransposeAction::SemitoneDown => if shift_held { -12 } else { -1 },
                                     TransposeAction::OctaveUp => 12,
                                     TransposeAction::OctaveDown => -12,
                                     TransposeAction::Reset => -transpose_offset,
