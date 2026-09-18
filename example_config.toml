@@ -80,6 +80,23 @@ auto_page_button = "Auto"
 pad_page_hold_select = true
 pad_aftertouch = "poly"
 
+# Scale names for 32 pages (must match pad_pages order; used for chord config)
+scale_names = ["Chromatic","Major","Minor","Dorian","Mixolydian","Phrygian","Lydian","Harmonic Minor","Melodic Minor","Double Harmonic","Minor Pentatonic","Minor Blues","Hungarian Minor","Hirajoshi","In Sen","Iwato","Chromatic Up","Major Up","Minor Up","Dorian Up","Mixolydian Up","Phrygian Up","Lydian Up","Harmonic Minor Up","Melodic Minor Up","Double Harmonic Up","Minor Pentatonic Up","Minor Blues Up","Hungarian Minor Up","Hirajoshi Up","In Sen Up","Iwato Up"]
+
+# Chord voicings per scale: "power" (root+fifth), "triad" (1-3-5), "tetrad" (1-3-5-7)
+# Default: 7-tone -> triad, non-7 (chromatic 12, pentatonic 5, blues 6) -> power (fixed 7 semitones, straightforward)
+# Override here to make pentatonic triads/tetrads, chromatic tetrads, etc.
+[chord_types]
+Chromatic = "power"
+"Minor Pentatonic" = "power"
+"Minor Blues" = "power"
+"Hirajoshi" = "power"
+"In Sen" = "power"
+"Iwato" = "power"
+# Examples for 7-tone tetrads:
+# Major = "tetrad"
+# Dorian = "tetrad"
+
 # Transpose: Left/Right semitone, Shift+Left/Right octave
 [transpose]
 semitone_up = "Right"

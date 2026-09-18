@@ -123,9 +123,9 @@ fn is_auto_page_button(settings: &Settings, button: Buttons) -> bool {
     }
 }
 
-// Build diatonic triad: pad 1,3,5 for 7-degree scales, pentatonic handled
+// Build chord for pad: configurable via [chord_types] in config (power/triad/tetrad)
 // pad_notes is driver idx order permuted; convert to phys sequential first
-fn triad_for_pad(pad_notes: &[u8], idx: usize, transpose: i32) -> Vec<u8> {
+fn triad_for_pad(pad_notes: &[u8], idx: usize, transpose: i32, scale_name: Option<&str>, chord_types: &std::collections::HashMap<String, String>) -> Vec<u8> {
     if pad_notes.is_empty() || idx >= pad_notes.len() {
         return vec![];
     }
@@ -144,28 +144,41 @@ fn triad_for_pad(pad_notes: &[u8], idx: usize, transpose: i32) -> Vec<u8> {
     };
     let phys = to_phys(pad_notes);
     let base = phys[0] as i32;
-    let mut intervals: Vec<i32> = Vec::new();
-    for i in 0..phys.len().min(7) {
-        let off = phys[i] as i32 - base;
-        if off >= 0 && off < 12 && !intervals.contains(&off) {
-            intervals.push(off);
-        }
+    // Derive intervals from all 16 notes (mod 12) to correctly handle chromatic (12) vs pentatonic (5)
+    let mut set = std::collections::HashSet::new();
+    for &note in &phys {
+        let off = (note as i32 - base).rem_euclid(12);
+        set.insert(off);
     }
+    let mut intervals: Vec<i32> = set.into_iter().collect();
     intervals.sort_unstable();
     if intervals.is_empty() {
         intervals = vec![0,2,4,5,7,9,11];
     }
     let n = intervals.len() as i32;
-    // Non-7-tone scales (chromatic 12, pentatonic 5, blues 6) are tricky for diatonic triads
-    // Use power chord (root + perfect fifth, fixed 7 semitones) for those
-    if n != 7 {
+    // Determine chord type: config override else auto (triad for 7, power for others)
+    // Config example: [chord_types] "Chromatic" = "power", "Minor Pentatonic" = "power", "Major" = "triad", "Dorian" = "tetrad"
+    let chord_type = scale_name
+        .and_then(|name| chord_types.get(name).map(|s| s.to_lowercase()))
+        .or_else(|| scale_name.and_then(|name| {
+            let base_name = name.trim_end_matches(" Up");
+            chord_types.get(base_name).map(|s| s.to_lowercase())
+        }))
+        .unwrap_or_else(|| if n == 7 { "triad".to_string() } else { "power".to_string() });
+    if chord_type == "power" || chord_type == "fifth" || chord_type == "5" {
         let phys_idx = [12,13,14,15,8,9,10,11,4,5,6,7,0,1,2,3][idx.min(15)] as i32;
         let root = base + (phys_idx / n) * 12 + intervals[(phys_idx % n) as usize];
         let fifth = root + 7;
-        return vec![
-            ((root + transpose).clamp(0,127)) as u8,
-            ((fifth + transpose).clamp(0,127)) as u8,
-        ];
+        return vec![((root+transpose).clamp(0,127)) as u8, ((fifth+transpose).clamp(0,127)) as u8];
+    }
+    if chord_type == "tetrad" || chord_type == "seventh" || chord_type == "7" || chord_type == "4" {
+        let driver_to_phys_idx = [12,13,14,15,8,9,10,11,4,5,6,7,0,1,2,3];
+        let phys_idx = driver_to_phys_idx[idx.min(15)] as i32;
+        let root = base + (phys_idx / n) * 12 + intervals[(phys_idx % n) as usize];
+        let third = base + ((phys_idx+2)/n)*12 + intervals[((phys_idx+2)%n) as usize];
+        let fifth = base + ((phys_idx+4)/n)*12 + intervals[((phys_idx+4)%n) as usize];
+        let seventh = base + ((phys_idx+6)/n)*12 + intervals[((phys_idx+6)%n) as usize];
+        return vec![((root+transpose).clamp(0,127)) as u8, ((third+transpose).clamp(0,127)) as u8, ((fifth+transpose).clamp(0,127)) as u8, ((seventh+transpose).clamp(0,127)) as u8];
     }
     let driver_to_phys_idx = [12,13,14,15,8,9,10,11,4,5,6,7,0,1,2,3];
     let phys_idx = driver_to_phys_idx[idx.min(15)] as i32;
@@ -871,9 +884,10 @@ fn main_loop(
                 let scaled_vel = velocity.min(127);
                 let channel = settings.pad_midi_channel();
 
-                // Chords mode: diatonic triads (root, third, fifth) of the scale
+                // Chords mode: configurable via [chord_types] (power/triad/tetrad), default triad for 7, power for others
                 if chords_active {
-                    let triad = triad_for_pad(notes, idx as usize, transpose_offset);
+                    let scale_name = settings.scale_names.get(current_page).map(|s| s.as_str());
+                    let triad = triad_for_pad(notes, idx as usize, transpose_offset, scale_name, &settings.chord_types);
                     match pad_evt {
                         PadEventType::NoteOn | PadEventType::PressOn => {
                             for n in triad {
@@ -886,10 +900,9 @@ fn main_loop(
                             }
                         }
                         PadEventType::Aftertouch => {
-                            // For chords, send poly aftertouch for each triad note if enabled
                             match settings.pad_aftertouch.as_str() {
                                 "poly" => {
-                                    let triad = triad_for_pad(notes, idx as usize, transpose_offset);
+                                    let triad = triad_for_pad(notes, idx as usize, transpose_offset, scale_name, &settings.chord_types);
                                     for n in triad {
                                         send_midi(port, channel, MidiMessage::Aftertouch { key: n.into(), vel: scaled_vel.into() });
                                     }

@@ -50,6 +50,18 @@ fn default_octave_up() -> String {
 fn default_octave_down() -> String {
     "".to_string()
 }
+fn default_scale_names() -> Vec<String> {
+    vec![
+        "Chromatic".to_string(), "Major".to_string(), "Minor".to_string(), "Dorian".to_string(),
+        "Mixolydian".to_string(), "Phrygian".to_string(), "Lydian".to_string(), "Harmonic Minor".to_string(),
+        "Melodic Minor".to_string(), "Double Harmonic".to_string(), "Minor Pentatonic".to_string(), "Minor Blues".to_string(),
+        "Hungarian Minor".to_string(), "Hirajoshi".to_string(), "In Sen".to_string(), "Iwato".to_string(),
+        "Chromatic Up".to_string(), "Major Up".to_string(), "Minor Up".to_string(), "Dorian Up".to_string(),
+        "Mixolydian Up".to_string(), "Phrygian Up".to_string(), "Lydian Up".to_string(), "Harmonic Minor Up".to_string(),
+        "Melodic Minor Up".to_string(), "Double Harmonic Up".to_string(), "Minor Pentatonic Up".to_string(), "Minor Blues Up".to_string(),
+        "Hungarian Minor Up".to_string(), "Hirajoshi Up".to_string(), "In Sen Up".to_string(), "Iwato Up".to_string(),
+    ]
+}
 
 #[derive(Deserialize, Debug, Clone)]
 pub(crate) struct ButtonConfig {
@@ -211,6 +223,12 @@ pub(crate) struct Settings {
 
     #[serde(default)]
     pub transpose: TransposeConfig,
+
+    #[serde(default = "default_scale_names")]
+    pub scale_names: Vec<String>,
+
+    #[serde(default)]
+    pub chord_types: HashMap<String, String>,
 }
 
 fn default_hold_select() -> bool {
@@ -238,6 +256,8 @@ impl Default for Settings {
             encoder: EncoderConfig::default(),
             slider: SliderConfig::default(),
             transpose: TransposeConfig::default(),
+            scale_names: default_scale_names(),
+            chord_types: HashMap::new(),
         }
     }
 }
