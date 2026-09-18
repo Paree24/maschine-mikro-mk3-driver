@@ -94,9 +94,9 @@ Per-button `value_press` / `value_release` customizes CC velocities (defaults `1
 
 Defaults defined in `crates/driver/src/settings.rs:277` and `example_config.toml`.
 
-### 4.1 Pads — 64 Pages (48 scales + 16 drums)
+### 4.1 Pads — 80 Pages (48 scales + 16 drums + 16 keyboard)
 
-`pad_pages` is 64 pages by default (max 64). Page `0` is startup. `example_config.toml` ships 48 scales + 16 drum kits.
+`pad_pages` is 80 pages by default (max 80). Page `0` is startup. `example_config.toml` ships 48 scales + 16 drum kits + 16 keyboard scales (from SCALES repo).
 
 | Bank | Button | Pages | Purpose |
 |------|--------|-------|---------|
@@ -104,6 +104,7 @@ Defaults defined in `crates/driver/src/settings.rs:277` and `example_config.toml
 | **Auto** | `Auto+Pad` / tap `Auto` | 17-32 (16-31) | Scales 17-32 (Kumoi … Romanian Minor) |
 | **Lock** | `Lock+Pad` / tap `Lock` | 33-48 (32-47) | Scales 33-48 (… up) |
 | **PadMode** | `PadMode+Pad` / tap `PadMode` | 49-64 (48-63) | Drums 1-16 (fresh, `36,38,42,46... +2 per page`) — gate unlocks |
+| **Keyboard** | `Keyboard+Pad` / tap `Keyboard` | 65-80 (64-79) | Keyboard 1-16 (repo scales: `major blues`/`bebop`/`diminished`/`lydian dominant`/`altered`/`dorian b2`/`ultralocrian`/`augmented heptatonic`/`whole tone`/`locrian major`/`double harmonic lydian`/`enigmatic`/`major augmented`/`messiaen #4`/`composite blues`/`lydian augmented`) — gate unlocks |
 
 `pad_page_button="Group"`, `auto_page_button="Auto"`, `lock_page_button="Lock"`, padmode hard-coded to `48`. Hold-select: `pad_page_hold_select=true` (hold button + tap pad selects directly, tap alone cycles). Set `pad_page_button=""` to disable paging.
 
@@ -129,7 +130,7 @@ Paging buttons are reserved — won’t send MIDI when paging is active.
 |--------|------|--------------------------|--------|-------|
 | `Maschine` | Gate (arp) / CC | `CC 38` | **Reserved when arp on** `faster rate`, else sends CC | Arp rate `faster` (next pure fraction `3/4..1/96`) |
 | `Star` | Gate (arp) / CC | `CC 39` | Reserved when arp on `slower rate`, else CC | Arp rate `slower` |
-| `Browse` | CC | `CC 40` | Sends CC | Free |
+| `Browse` | **Gate** | `CC 40` overridden | **Reserved** | Resets `arp` to `1/16` `Straight` `Bright` on press `Dim` on release |
 | `Volume` | CC | `CC 44` | Sends CC | Free |
 | `Swing` | **Gate** arp swing | `CC 46` | **Reserved** | Cycles `Straight 50 / Light 55 / Medium 60 / Triplet 66.7` `Bright` on press `Dim` on release |
 | `Tempo` | Gate / CC | `CC 48` | Reserved when arp on (Bright), else CC | Free when arp off |
@@ -153,7 +154,7 @@ Paging buttons are reserved — won’t send MIDI when paging is active.
 | `Shift` | Modifier | – (no CC) | Reserved | Held with `Left/Right` for octave |
 | `FixedVol` | **Toggle** | `CC 80` | Reserved | `Bright` = `127` fixed, `Dim` = velocity |
 | `PadMode` | **Page 49-64 + Gate** | `CC 81` overridden | Reserved | Tap cycles `49-64`, hold+pad selects `49-64`, gate `Bright` held drums `Dim` released |
-| `Keyboard` | CC | `CC 82` | Sends CC | Free |
+| `Keyboard` | **Page 65-80 + Gate** | `CC 82` overridden | **Reserved** | Tap cycles `65-80`, hold `Keyboard`+pad selects `65-80`, gate `Bright` switches pads to 16 extra scales (see §4.1) |
 | `Chords` | **Toggle** | `CC 84` overridden | Reserved | `Bright` = triads/power (configurable `[chord_types]`), mutually exclusive with `Step` |
 | `Step` | **Toggle** | `CC 83` overridden | Reserved | `Bright` = tetrad `1-3-5-7` for 7-tone / `power+oct` `1-5-8` for non-7, exclusive with `Chords` |
 | `Scene` | **Gate** | `CC 85` | Reserved | Held `Bright` `triad→tetrad` `Dim` off |
@@ -188,7 +189,7 @@ Raw `1–200` → `0–127`.
 
 ### 4.7 Chords / Scales
 
-48 scales (Chromatic … Romanian Minor + Drums 1-16) base `C1=24` 2 octaves, per-page `pad_pages` 16 notes driver-permuted `[13,14,15,16,12,11,10,9,8,7,6,5,1,2,3,4]` → `phys` sequential. `triad_for_pad` derives intervals from all 16 notes `mod12` sorted.
+80 scales (48 scales + 16 drums + 16 keyboard) base `C1=24` 2 octaves, per-page `pad_pages` 16 notes driver-permuted `[13,14,15,16,12,11,10,9,8,7,6,5,1,2,3,4]` → `phys` sequential. `triad_for_pad` derives intervals from all 16 notes `mod12` sorted.
 
 * **Chords toggle** `Bright`: 7-tone → `triad 1-3-5` (`root, third+2, fifth+4` degrees), non-7 → `power root+7`, configurable via `[chord_types]` `Chromatic="power"`, `Major="triad"` or `"tetrad"` (`1-3-5-7`).
 * **Step toggle** `Bright`: 7-tone → `tetrad 1-3-5-7` (via `tetrad` override), non-7 → `power+oct 1-5-8` (`root,fifth,octave`). Mutually exclusive with `Chords`.
@@ -230,11 +231,12 @@ pad_channel  = 9
 ### 5.2 Pads
 
 ```toml
-# 64 pages max (48 scales +16 drums) — example has 64
+# 80 pages max (48 scales +16 drums +16 keyboard) — example has 80
 pad_pages = [
   [36,38,42,46,...], # 0: Chromatic
   ... # 1-47 scales
   [36,38,42,46,...], # 48: Drums 1
+  ... # 64-79: Keyboard scales
 ]
 pad_page_button = "Group"
 auto_page_button = "Auto"
@@ -242,7 +244,7 @@ lock_page_button = "Lock"  # PadMode is hard-coded for 49-64
 pad_page_hold_select = true
 pad_aftertouch = "poly"     # or "channel" / "cc" / "off"
 
-scale_names = ["Chromatic","Major",...,"Drums 16"] # 64
+scale_names = ["Chromatic","Major",...,"Drums 16","Major Blues Kbd",...,"Lydian Augmented Kbd"] # 80
 pad_page_colors = ["Red","Orange",...,"White"] # 64
 
 [chord_types]
@@ -252,7 +254,7 @@ Major = "triad" # or "tetrad"
 
 Colors: `Off, Red, Orange, LightOrange, WarmYellow, Yellow, Lime, Green, Mint, Cyan, Turquoise, Blue, Plum, Violet, Purple, Magenta, Fuchsia, White` (`crates/maschine_library/src/lights.rs:14`).
 
-Validation: `pad_pages` 1-64 entries, each 16 notes `0-127`; `pad_page_colors` 64 if present.
+Validation: `pad_pages` 1-80 entries, each 16 notes `0-127`; `pad_page_colors` 80 if present.
 
 ### 5.3 Buttons
 
@@ -293,7 +295,7 @@ reset = ""
 * **Pad press** → `Normal` on hit, `Dim` on release. Override via `pad_colors` / `pad_page_colors`.
 * **Button press** → Toggles `Bright`/`Dim` (3-way strip `Dim` inactive), gates `Bright` held/`Dim` released.
 * **Strip** → 25-LED bar: `Pitch` spring dim on release, `Mod`/`Free` hold last position.
-* **Page change** → all pads selector `Bright` current vs `Dim` others for 700 ms, screen `n/64`.
+* **Page change** → all pads selector `Bright` current vs `Dim` others for 700 ms, screen `n/80`.
 * **Arp on** → screen shows `arp_rate` (`1/16` etc.) + `x octaves`, transpose hidden; arp off shows `n/64`.
 * **Self-test** on launch — ignore; ready when screen shows `1/64`.
 
@@ -308,7 +310,7 @@ Brightness: `Off=0x00, Dim=0x7c, Normal=0x7e, Bright=0x7f` (`lights.rs:6`).
 | `Config validation failed` | Follow error (e.g., `pad_pages should be 64`, `cc 0–127`). Prints parsed settings before failure. |
 | `No such file or directory /dev/hidraw` or `open VI 0x17cc PID 0x1700 failed` | Check USB, `lsusb \| grep 17cc:1700`; re-apply `98-maschine.rules` + `udevadm trigger`; unplug/re-plug. |
 | No MIDI port in DAW | Check backend — ALSA vs JACK is compile-time (`--features jack`). For JACK, start JACK before driver. Check `aconnect -l` (ALSA) or `jack_lsp`. |
-| Pads always same notes | Paging? Verify `pad_pages` len 64 and `pad_page_button` not empty. Screen should change. Check logs `Pad page selected → n/m`. |
+| Pads always same notes | Paging? Verify `pad_pages` len 80 and `pad_page_button` not empty. Screen should change. Check logs `Pad page selected → n/m`. |
 | `Group` doesn’t send MIDI | It’s paging button — reserved when `pad_pages.len()>1`. Set `pad_page_button=""` or map different button. Same for `Auto`/`Lock`/`PadMode`/`Left`/`Right`/`Pitch`/`Mod`/`Perform`/`Chords`/`Step`/gates/arp. |
 | Encoder feels inverted | `mode=relative` emits `1` CW / `127` CCW; some DAWs expect `65/63`. Swap in DAW mapping or log `Encoder: ...`. |
 | Strip is jumpy / LEDs flicker | Raw `1–200` scaled to `0–127`; touching near edge is normal. `Pitch` spring vs `Mod`/`Free` hold is intentional. |
@@ -320,7 +322,7 @@ Logs: driver prints `Button press/release`, `Pad idx: NoteOn @ vel (page n)`, `E
 
 ## 8. Windows Parity Notes
 
-* Windows Controller Editor → **Group + Pad** to change pad pages: replicated as `Group+Pad` (1-16), `Auto+Pad` (17-32), `Lock+Pad` (33-48), `PadMode+Pad` (49-64).
+* Windows Controller Editor → **Group + Pad** to change pad pages: replicated as `Group+Pad` (1-16), `Auto+Pad` (17-32), `Lock+Pad` (33-48), `PadMode+Pad` (49-64), `Keyboard+Pad` (65-80).
 * NI’s “Pages” tab knob pages don’t exist on Mikro MK3 — only pad pages. This driver has no separate knob pages (change encoder CC via config).
 * LED colors and brightness match firmware capabilities (4 levels) — color per page is now configurable where Windows only allowed fixed-blue in MIDI mode.
 * Additional performance features (scales, chords, arp, swing, gates, transpose, strip modes) are Linux-only extensions.
@@ -329,8 +331,8 @@ Logs: driver prints `Button press/release`, `Pad idx: NoteOn @ vel (page n)`, `E
 
 ## 9. File Map
 
-* `example_config.toml` — annotated template (64 pages, copy me).
-* `crates/driver/src/settings.rs` — schema + validation (max 64 pages).
+* `example_config.toml` — annotated template (80 pages, copy me).
+* `crates/driver/src/settings.rs` — schema + validation (max 80 pages).
 * `crates/driver/src/main.rs` — `main_loop` (HID `0x01` buttons, `0x02` pads, `buf[7]` encoder, `buf[10]` strip, gates/arp).
 * `crates/maschine_library/src/controls.rs` — button enum + `PadEventType`.
 * `crates/maschine_library/src/lights.rs` — `PadColors/Brightness`.

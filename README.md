@@ -51,7 +51,7 @@ I tried to make a version that could do both, but due to 1) how `midir` handles 
 ## Progress
 
 What works:
- - Pads (64 pages: 48 scales + 16 drums),
+ - Pads (80 pages: 48 scales + 16 drums + 16 keyboard),
  - Buttons (39, all with gates/toggles),
  - Encoder (CC7 relative),
  - Slider / Touch Strip (PitchBend/ModWheel/Free + 25 LEDs),
@@ -61,7 +61,7 @@ What works:
 So, basically everything, and even more than with the official driver.
 For example, it is now possible to turn unpressed pad LEDs to Dim and show per-page colors, and every button has 4 brightness levels (Off/Dim/Normal/Bright).
 
-All controls are now exported via MIDI — pads (with 64 pages), 39 buttons, encoder and touch strip — configurable via `example_config.toml`. See [USER_GUIDE.md](USER_GUIDE.md).
+All controls are now exported via MIDI — pads (with 80 pages), 39 buttons, encoder and touch strip — configurable via `example_config.toml`. See [USER_GUIDE.md](USER_GUIDE.md).
 
 Contributions are welcome!
 

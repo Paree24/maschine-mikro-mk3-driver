@@ -1,7 +1,7 @@
 # Maschine Mikro MK3 — Button → Functionality Mapping
 
 > Track what is currently mapped, what is free, and what could be added.  
-> Driver: `crates/maschine_library/src/controls.rs:4` (`Buttons` 0–40) + `crates/driver/src/main.rs` + `example_config.toml` (64 pages).
+> Driver: `crates/maschine_library/src/controls.rs:4` (`Buttons` 0–40) + `crates/driver/src/main.rs` + `example_config.toml` (80 pages).
 
 ## Legend
 
@@ -17,7 +17,7 @@
 |---|--------|------|--------------------------|--------|-------|
 | 0 | **Maschine** | Gate (arp) / CC | `CC 38` | **Reserved when arp on** `faster rate`, else CC | Arp `Maschine` = faster (next pure fraction `3/4..1/96`) `Bright` on press |
 | 1 | **Star** | Gate (arp) / CC | `CC 39` | Reserved when arp on `slower rate`, else CC | Arp `Star` = slower |
-| 2 | **Browse** | CC | `CC 40` | Sends CC | Free |
+| 2 | **Browse** | **Gate** | `CC 40` overridden | **Reserved** | Resets `arp` to `1/16` `Straight` `Bright` on press `Dim` on release |
 | 3 | **Volume** | CC | `CC 44` | Sends CC | Free |
 | 4 | **Swing** | **Gate arp swing** | `CC 46` overridden | **Reserved** | Cycles `Straight 50 → Light 55 → Medium 60 → Triplet 66.7` `Bright`/`Dim`, interval `long=rate*swing/50` `short=rate*(100-swing)/50` |
 | 5 | **Tempo** | Gate (arp) / CC | `CC 48` | Reserved when arp on `Bright`, else CC | Free when arp off |
@@ -43,7 +43,7 @@
 | 25 | **Shift** | Modifier | – (no CC) | **Reserved** | Held with `Left`/`Right` for octave |
 | 26 | **FixedVol** | **Toggle** | `CC 80` | **Reserved** | `Bright` = `127` fixed, `Dim` = velocity `val>>5` |
 | 27 | **PadMode** | **Page 49-64 + Gate** | `CC 81` overridden | **Reserved** | Tap cycles `49-64` (49th page = index 48), hold `PadMode`+pad selects `49-64` `Bright`/`Dim`; gate: held `Bright` switches pads to drum kit `drum_pages[current_page%16]` |
-| 28 | **Keyboard** | CC | `CC 82` | Sends CC | Free |
+| 28 | **Keyboard** | **Page 65-80 + Gate** | `CC 82` overridden | **Reserved** | Tap cycles `65-80` (65th page = index 64), hold `Keyboard`+pad selects `65-80` `Bright`/`Dim`; gate: held `Bright` switches pads to 16 extra scales from SCALES repo (`major blues`/`bebop`/`diminished`/`lydian dominant`/`altered`/`dorian b2`/`ultralocrian`/`augmented heptatonic`/`whole tone`/`locrian major`/`double harmonic lydian`/`enigmatic`/`major augmented`/`messiaen #4`/`composite blues`/`lydian augmented`) |
 | 29 | **Chords** | **Toggle** | `CC 84` overridden | **Reserved** | `Bright` = triads/power per `[chord_types]` (7-tone `1-3-5`, non-7 `root+7`), exclusive with `Step` |
 | 30 | **Step** | **Toggle** | `CC 83` overridden | **Reserved** | `Bright` = tetrad `1-3-5-7` for 7-tone / `power+oct` `1-5-8` for non-7, exclusive with `Chords` |
 | 31 | **Scene** | **Gate** | `CC 85` overridden | **Reserved** | Held `Bright` `triad→tetrad` `Dim` off |
@@ -65,7 +65,7 @@
 
 ## What is Free?
 
-* **Truly free (no driver logic):** `Browse`, `Volume`, `Plugin`, `Keyboard`, `Restart`, `Erase`, `Tap`, `Follow`, `Play/Rec/Stop` (when `daw_mackie=false`), `EncoderPress/Touch` — all send CC and can be remapped in DAW or repurposed by adding a new check in `main.rs`.
+* **Truly free (no driver logic):** `Volume`, `Plugin`, `Restart`, `Erase`, `Tap`, `Follow`, `Play/Rec/Stop` (when `daw_mackie=false`), `EncoderPress/Touch` — all send CC and can be remapped in DAW or repurposed by adding a new check in `main.rs`.
 * **Reserved (driver):** `Group`, `Auto`, `Lock`, `PadMode` (paging + gate), `Pitch`, `Mod`, `Perform` (strip 3-way), `Left`, `Right`, `Shift` (transpose), `Chords`, `Step` (toggles), `Scene`, `Pattern`, `Events`, `Variation`, `Duplicate`, `Select`, `Solo`, `Mute` (gates), `NoteRepeat`, `Notes`, `Maschine`, `Star`, `Sampling`, `Swing` (arp), `FixedVol`, `Tempo` (when arp on). Change via `example_config.toml` or code.
 
 ---
@@ -89,4 +89,4 @@ Same pattern works for any button.
 
 ---
 
-*Last updated: 2026-09-18 — driver `main.rs` 64 pages, `PadMode` 49-64, strip 3-way `Pitch/Mod/Perform` (`Dim` inactive), `Left/Right` transpose + `Shift` octave, `Chords`/`Step` + 8 gates, `Solo`/`Mute` +9th/+11th, `NoteRepeat`/`Notes`/`Maschine`/`Star`/`Sampling`/`Swing` arp (18 rates `3/4..1/96`, swing 50/55/60/66.7), `FixedVol`, `Group`/`Auto`/`Lock`/`PadMode` paging.*
+*Last updated: 2026-09-19 — driver `main.rs` 80 pages, `PadMode` 49-64 `Keyboard` 65-80, strip 3-way `Pitch/Mod/Perform` (`Dim` inactive), `Left/Right` transpose + `Shift` octave, `Chords`/`Step` + 8 gates, `Solo`/`Mute` +9th/+11th, `NoteRepeat`/`Notes`/`Maschine`/`Star`/`Sampling`/`Swing` arp (18 rates `3/4..1/96`, swing 50/55/60/66.7), `FixedVol`, `Group`/`Auto`/`Lock`/`PadMode` paging.*
