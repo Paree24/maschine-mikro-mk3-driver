@@ -288,18 +288,8 @@ fn update_screen_arp(screen: &mut Screen, device: &HidDevice, page: usize, total
                 x += 18;
             }
         }
-        // Show octaves
+        // Show octaves at top-right
         Font::write_digit(screen, 0, 110, arp_oct, 1);
-        // Show transpose small if non-zero
-        if transpose != 0 {
-            let abs_t = transpose.abs() as usize;
-            if abs_t < 10 {
-                Font::write_digit(screen, 0, 90, abs_t % 10, 1);
-            } else {
-                Font::write_digit(screen, 0, 80, (abs_t / 10) % 10, 1);
-                Font::write_digit(screen, 0, 90, abs_t % 10, 1);
-            }
-        }
         screen.write(device)
     } else {
         // Show "P:x/y" with large digits
@@ -1105,20 +1095,18 @@ fn main_loop(
             let encoder_val = buf[7];
             if encoder_val != 0 {
                 if arp_enabled {
-                    // Encoder cycles arp rate 1/1 .. 1/64 dotted/triplet, monotonic slow->fast
                     let delta = encoder_val as i8;
                     if delta != 0 {
-                        // Sorted by beats descending (slow to fast) for monotonic cycling
                         const RATES: &[(&str, f32)] = &[
                             ("1/1", 4.0), ("1/2.", 3.0), ("1/2", 2.0), ("1/4.", 1.5), ("1/2T", 1.333), ("1/4", 1.0), ("1/8.", 0.75), ("1/4T", 0.666), ("1/8", 0.5), ("1/16.", 0.375), ("1/8T", 0.333), ("1/16", 0.25), ("1/32.", 0.1875), ("1/16T", 0.166), ("1/32", 0.125), ("1/64.", 0.09375), ("1/32T", 0.0833), ("1/64", 0.0625), ("1/64T", 0.0417),
                         ];
                         let cur_idx = RATES.iter().position(|(n,_)| *n == arp_rate_name).unwrap_or(10);
-                        let step = if delta > 0 { 1 } else { -1 };
+                        let step = delta as i32;
                         let next_idx = (cur_idx as i32 + step).rem_euclid(RATES.len() as i32) as usize;
                         let (next_name, beats) = RATES[next_idx];
                         arp_rate = Duration::from_secs_f32(60.0/120.0 * beats);
                         arp_rate_name = next_name.to_string();
-                        println!("Arp rate -> {} ({:?}) via Encoder {}", arp_rate_name, arp_rate, delta);
+                        println!("Arp rate -> {} ({:?}) via Encoder {} ({}->{})", arp_rate_name, arp_rate, delta, cur_idx, next_idx);
                         let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
                         if lights.button_has_light(Buttons::EncoderPress) {
                             lights.set_button(Buttons::EncoderPress, Brightness::Bright);
