@@ -51,7 +51,7 @@ I tried to make a version that could do both, but due to 1) how `midir` handles 
 ## Progress
 
 What works:
- - Pads (80 pages: 48 scales + 16 drums + 16 keyboard),
+ - Pads (80 pages: 48 scales + 16 keyboard + 16 drums at end, scales continuous),
  - Buttons (39, all with gates/toggles),
  - Encoder (CC7 relative),
  - Slider / Touch Strip (PitchBend/ModWheel/Free + 25 LEDs),

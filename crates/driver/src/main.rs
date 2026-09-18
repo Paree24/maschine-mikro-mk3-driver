@@ -605,10 +605,10 @@ fn main_loop(
     };
     let mut pad_pages = base_pages.clone();
     if pad_pages.len() == 48 {
-        pad_pages.extend(drum_pages.clone());
+        pad_pages.extend(keyboard_pages.clone());
     }
     if pad_pages.len() == 64 {
-        pad_pages.extend(keyboard_pages.clone());
+        pad_pages.extend(drum_pages.clone());
     }
     let total_pages = pad_pages.len(); // 80 when 48+16+16
     let mut current_page: usize = 0;
@@ -1100,17 +1100,17 @@ fn main_loop(
                                             lights.set_button(Buttons::PadMode, Brightness::Bright);
                                             changed_lights = true;
                                         }
-                                        println!("PadMode gate -> on (16 drum pages 49-64) + hold");
+                                        println!("PadMode gate -> on (16 drum pages 65-80 at end) + hold");
                                     } else {
                                         padmode_page_holding = false;
                                         if !padmode_selected_via_pad {
-                                            let base = 48;
+                                            let base = 64;
                                             let count = (16).min(total_pages - base);
                                             if count > 0 {
                                                 let next = if current_page < base || current_page >= base + count { 0 } else { (current_page - base + 1) % count };
                                                 current_page = base + next;
                                                 page_changed = true;
-                                                println!("Pad page cycled (PadMode) -> {}/{} (49th page = 49)", current_page + 1, total_pages);
+                                                println!("Pad page cycled (PadMode) -> {}/{} (65th page = 65)", current_page + 1, total_pages);
                                             }
                                         }
                                         padmode_selected_via_pad = false;
@@ -1121,13 +1121,13 @@ fn main_loop(
                                         println!("PadMode gate -> off");
                                     }
                                 } else if status {
-                                    let base = 48;
+                                    let base = 64;
                                     let count = (16).min(total_pages - base);
                                     if count > 0 {
                                         let next = if current_page < base || current_page >= base + count { 0 } else { (current_page - base + 1) % count };
                                         current_page = base + next;
                                         page_changed = true;
-                                        println!("Pad page (PadMode) -> {}/{} (49th page = 49)", current_page + 1, total_pages);
+                                        println!("Pad page (PadMode) -> {}/{} (65th page = 65)", current_page + 1, total_pages);
                                     }
                                     if lights.button_has_light(Buttons::PadMode) {
                                         lights.set_button(Buttons::PadMode, Brightness::Bright);
@@ -1158,17 +1158,17 @@ fn main_loop(
                                             lights.set_button(Buttons::Keyboard, Brightness::Bright);
                                             changed_lights = true;
                                         }
-                                        println!("Keyboard gate -> on (16 extra scales 65-80) + hold");
+                                        println!("Keyboard gate -> on (16 extra scales 49-64 continuous) + hold");
                                     } else {
                                         keyboard_page_holding = false;
                                         if !keyboard_selected_via_pad {
-                                            let base = 64;
+                                            let base = 48;
                                             let count = std::cmp::min(16, total_pages - base);
                                             if count > 0 {
                                                 let next = if current_page < base || current_page >= base + count { 0 } else { (current_page - base + 1) % count };
                                                 current_page = base + next;
                                                 page_changed = true;
-                                                println!("Pad page cycled (Keyboard) -> {}/{} (65th page)", current_page + 1, total_pages);
+                                                println!("Pad page cycled (Keyboard) -> {}/{} (49th page)", current_page + 1, total_pages);
                                             }
                                         }
                                         keyboard_selected_via_pad = false;
@@ -1179,13 +1179,13 @@ fn main_loop(
                                         println!("Keyboard gate -> off");
                                     }
                                 } else if status {
-                                    let base = 64;
+                                    let base = 48;
                                     let count = std::cmp::min(16, total_pages - base);
                                     if count > 0 {
                                         let next = if current_page < base || current_page >= base + count { 0 } else { (current_page - base + 1) % count };
                                         current_page = base + next;
                                         page_changed = true;
-                                        println!("Pad page (Keyboard) -> {}/{} (65th page)", current_page + 1, total_pages);
+                                        println!("Pad page (Keyboard) -> {}/{} (49th page)", current_page + 1, total_pages);
                                     }
                                     if lights.button_has_light(Buttons::Keyboard) {
                                         lights.set_button(Buttons::Keyboard, Brightness::Bright);
@@ -1548,17 +1548,17 @@ fn main_loop(
                 };
                 println!("Pad {}: {:?} @ {} (page {})", idx, pad_evt, val, current_page);
 
-                // PadMode+Pad for drum pages 48-63 (16 fresh) - gate unlocks, like Auto/Lock for 49th page
-                if padmode_page_holding && settings.pad_page_hold_select && total_pages > 48 {
+                // PadMode+Pad for drum pages 64-79 (16 fresh at end) - gate unlocks, like Auto/Lock for 65th page
+                if padmode_page_holding && settings.pad_page_hold_select && total_pages > 64 {
                     match pad_evt {
                         PadEventType::NoteOn | PadEventType::PressOn => {
-                            let page_idx = 48 + idx as usize;
+                            let page_idx = 64 + idx as usize;
                             if page_idx < total_pages {
                                 if page_idx != current_page {
                                     current_page = page_idx;
                                     page_changed = true;
                                     padmode_selected_via_pad = true;
-                                    println!("Pad page selected via PadMode+pad {} -> {}/{} (49th page)", idx, current_page + 1, total_pages);
+                                    println!("Pad page selected via PadMode+pad {} -> {}/{} (65th page)", idx, current_page + 1, total_pages);
                                 } else {
                                     padmode_selected_via_pad = true;
                                 }
@@ -1568,17 +1568,17 @@ fn main_loop(
                         _ => continue,
                     }
                 }
-                // Keyboard+Pad for extra scales 64-79 (65-80) - gate unlocks 16 more scales
-                if keyboard_page_holding && settings.pad_page_hold_select && total_pages > 64 {
+                // Keyboard+Pad for extra scales 48-63 (49-64) - gate unlocks 16 more scales continuous
+                if keyboard_page_holding && settings.pad_page_hold_select && total_pages > 48 {
                     match pad_evt {
                         PadEventType::NoteOn | PadEventType::PressOn => {
-                            let page_idx = 64 + idx as usize;
+                            let page_idx = 48 + idx as usize;
                             if page_idx < total_pages {
                                 if page_idx != current_page {
                                     current_page = page_idx;
                                     page_changed = true;
                                     keyboard_selected_via_pad = true;
-                                    println!("Pad page selected via Keyboard+pad {} -> {}/{} (65th page)", idx, current_page + 1, total_pages);
+                                    println!("Pad page selected via Keyboard+pad {} -> {}/{} (49th page)", idx, current_page + 1, total_pages);
                                 } else {
                                     keyboard_selected_via_pad = true;
                                 }

@@ -1,4 +1,4 @@
-# 80 scales (48 scales +16 drums +16 keyboard) – Group 1-16, Auto 17-32, Lock 33-48, PadMode+Pad 49-64 – Group 1-16, Auto 17-32, Lock 33-48
+# 80 scales (48 scales +16 keyboard +16 drums at end, scales continuous) – Group 1-16, Auto 17-32, Lock 33-48, PadMode+Pad 49-64 – Group 1-16, Auto 17-32, Lock 33-48
 client_name = "Maschine Mikro MK3"
 port_name = "Maschine Mikro MK3 MIDI Out"
 
@@ -6,166 +6,166 @@ midi_channel = 0
 pad_channel = 9
 
 pad_pages = [
-  # Chromatic
+# Chromatic
   [36, 37, 38, 39, 32, 33, 34, 35, 28, 29, 30, 31, 24, 25, 26, 27],
-  # Major
+# Major
   [45, 47, 48, 50, 38, 40, 41, 43, 31, 33, 35, 36, 24, 26, 28, 29],
-  # Dorian
+# Dorian
   [45, 46, 48, 50, 38, 39, 41, 43, 31, 33, 34, 36, 24, 26, 27, 29],
-  # Phrygian
+# Phrygian
   [44, 46, 48, 49, 37, 39, 41, 43, 31, 32, 34, 36, 24, 25, 27, 29],
-  # Lydian
+# Lydian
   [45, 47, 48, 50, 38, 40, 42, 43, 31, 33, 35, 36, 24, 26, 28, 30],
-  # Mixolydian
+# Mixolydian
   [45, 46, 48, 50, 38, 40, 41, 43, 31, 33, 34, 36, 24, 26, 28, 29],
-  # Natural Minor
+# Natural Minor
   [44, 46, 48, 50, 38, 39, 41, 43, 31, 32, 34, 36, 24, 26, 27, 29],
-  # Locrian
+# Locrian
   [44, 46, 48, 49, 37, 39, 41, 42, 30, 32, 34, 36, 24, 25, 27, 29],
-  # Harmonic Minor
+# Harmonic Minor
   [44, 47, 48, 50, 38, 39, 41, 43, 31, 32, 35, 36, 24, 26, 27, 29],
-  # Melodic Minor
+# Melodic Minor
   [45, 47, 48, 50, 38, 39, 41, 43, 31, 33, 35, 36, 24, 26, 27, 29],
-  # Harmonic Major
+# Harmonic Major
   [44, 47, 48, 50, 38, 40, 41, 43, 31, 32, 35, 36, 24, 26, 28, 29],
-  # Phrygian Dominant
+# Phrygian Dominant
   [44, 46, 48, 49, 37, 40, 41, 43, 31, 32, 34, 36, 24, 25, 28, 29],
-  # Mixolydian b6
+# Mixolydian b6
   [44, 46, 48, 50, 38, 40, 41, 43, 31, 32, 34, 36, 24, 26, 28, 29],
-  # Major Pentatonic
+# Major Pentatonic
   [52, 55, 57, 60, 43, 45, 48, 50, 33, 36, 38, 40, 24, 26, 28, 31],
-  # Minor Pentatonic
+# Minor Pentatonic
   [53, 55, 58, 60, 43, 46, 48, 51, 34, 36, 39, 41, 24, 27, 29, 31],
-  # Major Blues
+# Major Blues
   [48, 50, 51, 52, 39, 40, 43, 45, 31, 33, 36, 38, 24, 26, 27, 28],
-  # Minor Blues
+# Minor Blues
   [48, 51, 53, 54, 41, 42, 43, 46, 31, 34, 36, 39, 24, 27, 29, 30],
-  # Double Harmonic Major
+# Double Harmonic Major
   [44, 47, 48, 49, 37, 40, 41, 43, 31, 32, 35, 36, 24, 25, 28, 29],
-  # Neapolitan Minor
+# Neapolitan Minor
   [44, 47, 48, 49, 37, 39, 41, 43, 31, 32, 35, 36, 24, 25, 27, 29],
-  # Neapolitan Major
+# Neapolitan Major
   [45, 47, 48, 49, 37, 40, 41, 43, 31, 33, 35, 36, 24, 25, 28, 29],
-  # Hungarian Minor
+# Hungarian Minor
   [44, 47, 48, 50, 38, 39, 42, 43, 31, 32, 35, 36, 24, 26, 27, 30],
-  # Hungarian Major
+# Hungarian Major
   [45, 46, 48, 51, 39, 40, 42, 43, 31, 33, 34, 36, 24, 27, 28, 30],
-  # Persian
+# Persian
   [44, 47, 48, 49, 37, 40, 41, 42, 30, 32, 35, 36, 24, 25, 28, 29],
-  # Ukrainian Dorian
+# Ukrainian Dorian
   [45, 46, 48, 50, 38, 39, 42, 43, 31, 33, 34, 36, 24, 26, 27, 30],
-  # Hirajoshi
+# Hirajoshi
   [51, 55, 56, 60, 43, 44, 48, 50, 32, 36, 38, 39, 24, 26, 27, 31],
-  # In Sen
+# In Sen
   [53, 55, 58, 60, 43, 46, 48, 49, 34, 36, 37, 41, 24, 25, 29, 31],
-  # Iwato
+# Iwato
   [53, 54, 58, 60, 42, 46, 48, 49, 34, 36, 37, 41, 24, 25, 29, 30],
-  # Kumoi
+# Kumoi
   [51, 55, 57, 60, 43, 45, 48, 50, 33, 36, 38, 39, 24, 26, 27, 31],
-  # Yo
+# Yo
   [53, 55, 57, 60, 43, 45, 48, 50, 33, 36, 38, 41, 24, 26, 29, 31],
-  # Egyptian
+# Egyptian
   [53, 55, 58, 60, 43, 46, 48, 50, 34, 36, 38, 41, 24, 26, 29, 31],
-  # Japanese Ritsu
+# Japanese Ritsu
   [53, 55, 57, 60, 43, 45, 48, 50, 33, 36, 38, 41, 24, 26, 29, 31],
-  # Japanese Akebono
+# Japanese Akebono
   [51, 55, 56, 60, 43, 44, 48, 50, 32, 36, 38, 39, 24, 26, 27, 31],
-  # Japanese Sakura
+# Japanese Sakura
   [53, 55, 56, 60, 43, 44, 48, 49, 32, 36, 37, 41, 24, 25, 29, 31],
-  # Japanese Miyako-bushi
+# Japanese Miyako-bushi
   [51, 55, 56, 60, 43, 44, 48, 49, 32, 36, 37, 39, 24, 25, 27, 31],
-  # Bhairav
+# Bhairav
   [44, 47, 48, 49, 37, 40, 41, 43, 31, 32, 35, 36, 24, 25, 28, 29],
-  # Todi
+# Todi
   [44, 47, 48, 49, 37, 39, 42, 43, 31, 32, 35, 36, 24, 25, 27, 30],
-  # Marwa
+# Marwa
   [45, 47, 48, 49, 37, 40, 42, 43, 31, 33, 35, 36, 24, 25, 28, 30],
-  # Kafi
+# Kafi
   [45, 46, 48, 50, 38, 39, 41, 43, 31, 33, 34, 36, 24, 26, 27, 29],
-  # Hijaz
+# Hijaz
   [44, 46, 48, 49, 37, 40, 41, 43, 31, 32, 34, 36, 24, 25, 28, 29],
-  # Bayati
+# Bayati
   [44, 46, 48, 49, 37, 39, 41, 43, 31, 32, 34, 36, 24, 25, 27, 29],
-  # Nahawand
+# Nahawand
   [44, 47, 48, 50, 38, 39, 41, 43, 31, 32, 35, 36, 24, 26, 27, 29],
-  # Chinese Shang
+# Chinese Shang
   [45, 46, 48, 50, 38, 39, 41, 43, 31, 33, 34, 36, 24, 26, 27, 29],
-  # Chinese Yu
+# Chinese Yu
   [53, 55, 58, 60, 43, 46, 48, 51, 34, 36, 39, 41, 24, 27, 29, 31],
-  # Pelog
+# Pelog
   [51, 55, 56, 60, 43, 44, 48, 49, 32, 36, 37, 39, 24, 25, 27, 31],
-  # Slendro
+# Slendro
   [53, 55, 58, 60, 43, 46, 48, 50, 34, 36, 38, 41, 24, 26, 29, 31],
-  # Byzantine
+# Byzantine
   [44, 47, 48, 49, 37, 40, 41, 43, 31, 32, 35, 36, 24, 25, 28, 29],
-  # Prometheus
+# Prometheus
   [48, 50, 52, 54, 40, 42, 45, 46, 33, 34, 36, 38, 24, 26, 28, 30],
-  # Romanian Minor
+# Romanian Minor
   [45, 46, 48, 50, 38, 39, 42, 43, 31, 33, 34, 36, 24, 26, 27, 30],
-  # Drums 1
-  [36, 38, 42, 46, 41, 43, 45, 47, 37, 39, 44, 49, 51, 54, 56, 59],
-  # Drums 2
-  [38, 40, 44, 48, 43, 45, 47, 49, 39, 41, 46, 51, 53, 56, 58, 61],
-  # Drums 3
-  [40, 42, 46, 50, 45, 47, 49, 51, 41, 43, 48, 53, 55, 58, 60, 63],
-  # Drums 4
-  [42, 44, 48, 52, 47, 49, 51, 53, 43, 45, 50, 55, 57, 60, 62, 65],
-  # Drums 5
-  [44, 46, 50, 54, 49, 51, 53, 55, 45, 47, 52, 57, 59, 62, 64, 67],
-  # Drums 6
-  [46, 48, 52, 56, 51, 53, 55, 57, 47, 49, 54, 59, 61, 64, 66, 69],
-  # Drums 7
-  [48, 50, 54, 58, 53, 55, 57, 59, 49, 51, 56, 61, 63, 66, 68, 71],
-  # Drums 8
-  [50, 52, 56, 60, 55, 57, 59, 61, 51, 53, 58, 63, 65, 68, 70, 73],
-  # Drums 9
-  [52, 54, 58, 62, 57, 59, 61, 63, 53, 55, 60, 65, 67, 70, 72, 75],
-  # Drums 10
-  [54, 56, 60, 64, 59, 61, 63, 65, 55, 57, 62, 67, 69, 72, 74, 77],
-  # Drums 11
-  [56, 58, 62, 66, 61, 63, 65, 67, 57, 59, 64, 69, 71, 74, 76, 79],
-  # Drums 12
-  [58, 60, 64, 68, 63, 65, 67, 69, 59, 61, 66, 71, 73, 76, 78, 81],
-  # Drums 13
-  [60, 62, 66, 70, 65, 67, 69, 71, 61, 63, 68, 73, 75, 78, 80, 83],
-  # Drums 14
-  [62, 64, 68, 72, 67, 69, 71, 73, 63, 65, 70, 75, 77, 80, 82, 85],
-  # Drums 15
-  [64, 66, 70, 74, 69, 71, 73, 75, 65, 67, 72, 77, 79, 82, 84, 87],
-  # Drums 16
-  [66, 68, 72, 76, 71, 73, 75, 77, 67, 69, 74, 79, 81, 84, 86, 89],
-  # Keyboard Major Blues
+# Keyboard Major Blues
   [48, 50, 51, 52, 39, 40, 43, 45, 31, 33, 36, 38, 24, 26, 27, 28],
-  # Keyboard Bebop
+# Keyboard Bebop
   [43, 45, 46, 47, 36, 38, 40, 41, 31, 33, 34, 35, 24, 26, 28, 29],
-  # Keyboard Diminished
+# Keyboard Diminished
   [42, 44, 45, 47, 36, 38, 39, 41, 30, 32, 33, 35, 24, 26, 27, 29],
-  # Keyboard Lydian Dominant
+# Keyboard Lydian Dominant
   [45, 46, 48, 50, 38, 40, 42, 43, 31, 33, 34, 36, 24, 26, 28, 30],
-  # Keyboard Altered
+# Keyboard Altered
   [44, 46, 48, 49, 37, 39, 40, 42, 30, 32, 34, 36, 24, 25, 27, 28],
-  # Keyboard Dorian b2
+# Keyboard Dorian b2
   [45, 46, 48, 49, 37, 39, 41, 43, 31, 33, 34, 36, 24, 25, 27, 29],
-  # Keyboard Ultralocrian
+# Keyboard Ultralocrian
   [44, 45, 48, 49, 37, 39, 40, 42, 30, 32, 33, 36, 24, 25, 27, 28],
-  # Keyboard Augmented Heptatonic
+# Keyboard Augmented Heptatonic
   [44, 47, 48, 51, 39, 40, 41, 43, 31, 32, 35, 36, 24, 27, 28, 29],
-  # Keyboard Whole Tone
+# Keyboard Whole Tone
   [48, 50, 52, 54, 40, 42, 44, 46, 32, 34, 36, 38, 24, 26, 28, 30],
-  # Keyboard Locrian Major
+# Keyboard Locrian Major
   [44, 46, 48, 50, 38, 40, 41, 42, 30, 32, 34, 36, 24, 26, 28, 29],
-  # Keyboard Double Harmonic Lydian
+# Keyboard Double Harmonic Lydian
   [44, 47, 48, 49, 37, 40, 42, 43, 31, 32, 35, 36, 24, 25, 28, 30],
-  # Keyboard Enigmatic
+# Keyboard Enigmatic
   [46, 47, 48, 49, 37, 40, 42, 44, 32, 34, 35, 36, 24, 25, 28, 30],
-  # Keyboard Major Augmented
+# Keyboard Major Augmented
   [45, 47, 48, 50, 38, 40, 41, 44, 32, 33, 35, 36, 24, 26, 28, 29],
-  # Keyboard Messiaen #4
+# Keyboard Messiaen #4
   [42, 43, 44, 47, 36, 37, 38, 41, 30, 31, 32, 35, 24, 25, 26, 29],
-  # Keyboard Composite Blues
+# Keyboard Composite Blues
   [40, 41, 42, 43, 34, 36, 38, 39, 29, 30, 31, 33, 24, 26, 27, 28],
-  # Keyboard Lydian Augmented
+# Keyboard Lydian Augmented
   [45, 47, 48, 50, 38, 40, 42, 44, 32, 33, 35, 36, 24, 26, 28, 30],
+# Drums 1
+  [36, 38, 42, 46, 41, 43, 45, 47, 37, 39, 44, 49, 51, 54, 56, 59],
+# Drums 2
+  [38, 40, 44, 48, 43, 45, 47, 49, 39, 41, 46, 51, 53, 56, 58, 61],
+# Drums 3
+  [40, 42, 46, 50, 45, 47, 49, 51, 41, 43, 48, 53, 55, 58, 60, 63],
+# Drums 4
+  [42, 44, 48, 52, 47, 49, 51, 53, 43, 45, 50, 55, 57, 60, 62, 65],
+# Drums 5
+  [44, 46, 50, 54, 49, 51, 53, 55, 45, 47, 52, 57, 59, 62, 64, 67],
+# Drums 6
+  [46, 48, 52, 56, 51, 53, 55, 57, 47, 49, 54, 59, 61, 64, 66, 69],
+# Drums 7
+  [48, 50, 54, 58, 53, 55, 57, 59, 49, 51, 56, 61, 63, 66, 68, 71],
+# Drums 8
+  [50, 52, 56, 60, 55, 57, 59, 61, 51, 53, 58, 63, 65, 68, 70, 73],
+# Drums 9
+  [52, 54, 58, 62, 57, 59, 61, 63, 53, 55, 60, 65, 67, 70, 72, 75],
+# Drums 10
+  [54, 56, 60, 64, 59, 61, 63, 65, 55, 57, 62, 67, 69, 72, 74, 77],
+# Drums 11
+  [56, 58, 62, 66, 61, 63, 65, 67, 57, 59, 64, 69, 71, 74, 76, 79],
+# Drums 12
+  [58, 60, 64, 68, 63, 65, 67, 69, 59, 61, 66, 71, 73, 76, 78, 81],
+# Drums 13
+  [60, 62, 66, 70, 65, 67, 69, 71, 61, 63, 68, 73, 75, 78, 80, 83],
+# Drums 14
+  [62, 64, 68, 72, 67, 69, 71, 73, 63, 65, 70, 75, 77, 80, 82, 85],
+# Drums 15
+  [64, 66, 70, 74, 69, 71, 73, 75, 65, 67, 72, 77, 79, 82, 84, 87],
+# Drums 16
+  [66, 68, 72, 76, 71, 73, 75, 77, 67, 69, 74, 79, 81, 84, 86, 89],
 ]
 
 pad_page_button = "Group"
@@ -175,8 +175,8 @@ pad_page_hold_select = true
 pad_aftertouch = "poly"
 daw_mackie = false
 
-scale_names = ['Chromatic', 'Major', 'Dorian', 'Phrygian', 'Lydian', 'Mixolydian', 'Natural Minor', 'Locrian', 'Harmonic Minor', 'Melodic Minor', 'Harmonic Major', 'Phrygian Dominant', 'Mixolydian b6', 'Major Pentatonic', 'Minor Pentatonic', 'Major Blues', 'Minor Blues', 'Double Harmonic Major', 'Neapolitan Minor', 'Neapolitan Major', 'Hungarian Minor', 'Hungarian Major', 'Persian', 'Ukrainian Dorian', 'Hirajoshi', 'In Sen', 'Iwato', 'Kumoi', 'Yo', 'Egyptian', 'Japanese Ritsu', 'Japanese Akebono', 'Japanese Sakura', 'Japanese Miyako-bushi', 'Bhairav', 'Todi', 'Marwa', 'Kafi', 'Hijaz', 'Bayati', 'Nahawand', 'Chinese Shang', 'Chinese Yu', 'Pelog', 'Slendro', 'Byzantine', 'Prometheus', 'Romanian Minor', 'Drums 1', 'Drums 2', 'Drums 3', 'Drums 4', 'Drums 5', 'Drums 6', 'Drums 7', 'Drums 8', 'Drums 9', 'Drums 10', 'Drums 11', 'Drums 12', 'Drums 13', 'Drums 14', 'Drums 15', 'Drums 16', 'Major Blues Kbd', 'Bebop Kbd', 'Diminished Kbd', 'Lydian Dominant Kbd', 'Altered Kbd', 'Dorian b2 Kbd', 'Ultralocrian Kbd', 'Augmented Heptatonic Kbd', 'Whole Tone Kbd', 'Locrian Major Kbd', 'Double Harmonic Lydian Kbd', 'Enigmatic Kbd', 'Major Augmented Kbd', 'Messiaen #4 Kbd', 'Composite Blues Kbd', 'Lydian Augmented Kbd']
-pad_page_colors = ['Red', 'Orange', 'LightOrange', 'WarmYellow', 'Yellow', 'Lime', 'Green', 'Mint', 'Cyan', 'Turquoise', 'Blue', 'Plum', 'Violet', 'Purple', 'Magenta', 'Fuchsia', 'White', 'Red', 'Orange', 'LightOrange', 'WarmYellow', 'Yellow', 'Lime', 'Green', 'Mint', 'Cyan', 'Turquoise', 'Blue', 'Plum', 'Violet', 'Purple', 'Magenta', 'Fuchsia', 'White', 'Red', 'Orange', 'LightOrange', 'WarmYellow', 'Yellow', 'Lime', 'Green', 'Mint', 'Cyan', 'Turquoise', 'Blue', 'Plum', 'Violet', 'Purple', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'Plum', 'Violet', 'Purple', 'Magenta', 'Fuchsia', 'White', 'Red', 'Orange', 'LightOrange', 'WarmYellow', 'Yellow', 'Lime', 'Green', 'Mint', 'Cyan', 'Turquoise']
+scale_names = ['Chromatic', 'Major', 'Dorian', 'Phrygian', 'Lydian', 'Mixolydian', 'Natural Minor', 'Locrian', 'Harmonic Minor', 'Melodic Minor', 'Harmonic Major', 'Phrygian Dominant', 'Mixolydian b6', 'Major Pentatonic', 'Minor Pentatonic', 'Major Blues', 'Minor Blues', 'Double Harmonic Major', 'Neapolitan Minor', 'Neapolitan Major', 'Hungarian Minor', 'Hungarian Major', 'Persian', 'Ukrainian Dorian', 'Hirajoshi', 'In Sen', 'Iwato', 'Kumoi', 'Yo', 'Egyptian', 'Japanese Ritsu', 'Japanese Akebono', 'Japanese Sakura', 'Japanese Miyako-bushi', 'Bhairav', 'Todi', 'Marwa', 'Kafi', 'Hijaz', 'Bayati', 'Nahawand', 'Chinese Shang', 'Chinese Yu', 'Pelog', 'Slendro', 'Byzantine', 'Prometheus', 'Romanian Minor', 'Major Blues Kbd', 'Bebop Kbd', 'Diminished Kbd', 'Lydian Dominant Kbd', 'Altered Kbd', 'Dorian b2 Kbd', 'Ultralocrian Kbd', 'Augmented Heptatonic Kbd', 'Whole Tone Kbd', 'Locrian Major Kbd', 'Double Harmonic Lydian Kbd', 'Enigmatic Kbd', 'Major Augmented Kbd', 'Messiaen #4 Kbd', 'Composite Blues Kbd', 'Lydian Augmented Kbd', 'Drums 1', 'Drums 2', 'Drums 3', 'Drums 4', 'Drums 5', 'Drums 6', 'Drums 7', 'Drums 8', 'Drums 9', 'Drums 10', 'Drums 11', 'Drums 12', 'Drums 13', 'Drums 14', 'Drums 15', 'Drums 16']
+pad_page_colors = ['Red', 'Orange', 'LightOrange', 'WarmYellow', 'Yellow', 'Lime', 'Green', 'Mint', 'Cyan', 'Turquoise', 'Blue', 'Plum', 'Violet', 'Purple', 'Magenta', 'Fuchsia', 'White', 'Red', 'Orange', 'LightOrange', 'WarmYellow', 'Yellow', 'Lime', 'Green', 'Mint', 'Cyan', 'Turquoise', 'Blue', 'Plum', 'Violet', 'Purple', 'Magenta', 'Fuchsia', 'White', 'Red', 'Orange', 'LightOrange', 'WarmYellow', 'Yellow', 'Lime', 'Green', 'Mint', 'Cyan', 'Turquoise', 'Blue', 'Plum', 'Violet', 'Purple', 'Plum', 'Violet', 'Purple', 'Magenta', 'Fuchsia', 'White', 'Red', 'Orange', 'LightOrange', 'WarmYellow', 'Yellow', 'Lime', 'Green', 'Mint', 'Cyan', 'Turquoise', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'White', 'White']
 
 [chord_types]
 "Chromatic" = "power"
