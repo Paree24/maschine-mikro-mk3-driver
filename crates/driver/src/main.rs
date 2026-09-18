@@ -623,6 +623,10 @@ fn main_loop(
     let mut chords_active = false;
     let mut tetrad_active = false;
     let mut step_tetrad_active = false;
+    // Inversion toggles for chords (Play/Rec/Stop) — mutually exclusive
+    let mut play_inv1 = false;
+    let mut rec_inv2 = false;
+    let mut stop_oct = false;
     // Gate holds for chord/page modifiers (all momentary)
     let mut padmode_held = false;
     let mut scene_held = false;
@@ -1071,6 +1075,36 @@ fn main_loop(
                             changed_lights = true;
                         } else if !status && button == Buttons::Step {
                             // keep LED
+                        } else if status && button == Buttons::Play {
+                            play_inv1 = !play_inv1;
+                            if play_inv1 { rec_inv2 = false; stop_oct = false; }
+                            println!("Play inv -> {}", if play_inv1 { "first inversion" } else { "root" });
+                            if lights.button_has_light(Buttons::Play) { lights.set_button(Buttons::Play, if play_inv1 { Brightness::Bright } else { Brightness::Dim }); }
+                            if lights.button_has_light(Buttons::Rec) { lights.set_button(Buttons::Rec, Brightness::Dim); }
+                            if lights.button_has_light(Buttons::Stop) { lights.set_button(Buttons::Stop, Brightness::Dim); }
+                            changed_lights = true;
+                        } else if !status && button == Buttons::Play {
+                            // keep latched
+                        } else if status && button == Buttons::Rec {
+                            rec_inv2 = !rec_inv2;
+                            if rec_inv2 { play_inv1 = false; stop_oct = false; }
+                            println!("Rec inv -> {}", if rec_inv2 { "second inversion" } else { "root" });
+                            if lights.button_has_light(Buttons::Rec) { lights.set_button(Buttons::Rec, if rec_inv2 { Brightness::Bright } else { Brightness::Dim }); }
+                            if lights.button_has_light(Buttons::Play) { lights.set_button(Buttons::Play, Brightness::Dim); }
+                            if lights.button_has_light(Buttons::Stop) { lights.set_button(Buttons::Stop, Brightness::Dim); }
+                            changed_lights = true;
+                        } else if !status && button == Buttons::Rec {
+                            // keep latched
+                        } else if status && button == Buttons::Stop {
+                            stop_oct = !stop_oct;
+                            if stop_oct { play_inv1 = false; rec_inv2 = false; }
+                            println!("Stop bass -> {}", if stop_oct { "root -12" } else { "off" });
+                            if lights.button_has_light(Buttons::Stop) { lights.set_button(Buttons::Stop, if stop_oct { Brightness::Bright } else { Brightness::Dim }); }
+                            if lights.button_has_light(Buttons::Play) { lights.set_button(Buttons::Play, Brightness::Dim); }
+                            if lights.button_has_light(Buttons::Rec) { lights.set_button(Buttons::Rec, Brightness::Dim); }
+                            changed_lights = true;
+                        } else if !status && button == Buttons::Stop {
+                            // keep latched
                         } else if status && button == Buttons::Perform {
                             if strip_mode != StripMode::Free {
                                 // enter Free, remember previous
@@ -1684,6 +1718,13 @@ fn main_loop(
                             }
                             if solo_held { let r = base_notes[0] as i32; let n = ((r+14).clamp(0,127)) as u8; if !base_notes.contains(&n) { base_notes.push(n); } }
                             if mute_held { let r = base_notes[0] as i32; let n = ((r+17).clamp(0,127)) as u8; if !base_notes.contains(&n) { base_notes.push(n); } }
+                            if play_inv1 && base_notes.len() >= 2 {
+                                let r = base_notes.remove(0); base_notes.push(((r as i32 + 12).clamp(0,127)) as u8);
+                            } else if rec_inv2 && base_notes.len() >= 3 {
+                                let r = base_notes.remove(0); let t = base_notes.remove(0); base_notes.push(((r as i32 + 12).clamp(0,127)) as u8); base_notes.push(((t as i32 + 12).clamp(0,127)) as u8);
+                            } else if stop_oct && !base_notes.is_empty() {
+                                let r = base_notes[0] as i32; let bass = ((r - 12).clamp(0,127)) as u8; if !base_notes.contains(&bass) { base_notes.push(bass); }
+                            }
                             base_notes.sort_unstable(); base_notes.dedup();
                         }
                     }
@@ -1839,7 +1880,15 @@ fn main_loop(
                         }
                         g
                     };
-                    let tetrad = gated_step;
+                    let mut tetrad = gated_step;
+                    // Inversions for all triads/tetrads (Play first, Rec second, Stop root -12)
+                    if play_inv1 && tetrad.len() >= 2 {
+                        let r = tetrad.remove(0); tetrad.push(((r as i32 + 12).clamp(0,127)) as u8); tetrad.sort_unstable();
+                    } else if rec_inv2 && tetrad.len() >= 3 {
+                        let r = tetrad.remove(0); let t = tetrad.remove(0); tetrad.push(((r as i32 + 12).clamp(0,127)) as u8); tetrad.push(((t as i32 + 12).clamp(0,127)) as u8); tetrad.sort_unstable();
+                    } else if stop_oct && !tetrad.is_empty() {
+                        let r = tetrad[0] as i32; let bass = ((r - 12).clamp(0,127)) as u8; if !tetrad.contains(&bass) { tetrad.push(bass); tetrad.sort_unstable(); }
+                    }
                     match pad_evt {
                         PadEventType::NoteOn | PadEventType::PressOn => {
                             for n in &tetrad { send_midi(port, channel, MidiMessage::NoteOn { key: (*n).into(), vel: scaled_vel.into() }); }
@@ -1886,7 +1935,14 @@ fn main_loop(
                         }
                         g
                     };
-                    let triad = gated;
+                    let mut triad = gated;
+                    if play_inv1 && triad.len() >= 2 {
+                        let r = triad.remove(0); triad.push(((r as i32 + 12).clamp(0,127)) as u8); triad.sort_unstable();
+                    } else if rec_inv2 && triad.len() >= 3 {
+                        let r = triad.remove(0); let t = triad.remove(0); triad.push(((r as i32 + 12).clamp(0,127)) as u8); triad.push(((t as i32 + 12).clamp(0,127)) as u8); triad.sort_unstable();
+                    } else if stop_oct && !triad.is_empty() {
+                        let r = triad[0] as i32; let bass = ((r - 12).clamp(0,127)) as u8; if !triad.contains(&bass) { triad.push(bass); triad.sort_unstable(); }
+                    }
                     match pad_evt {
                         PadEventType::NoteOn | PadEventType::PressOn => {
                             for n in triad {
@@ -1945,6 +2001,16 @@ fn main_loop(
                     g.sort_unstable(); g.dedup();
                     g
                 };
+                // Inversions for single-derived chords (all triads)
+                let mut gated_single_inv = gated_single.clone();
+                if play_inv1 && gated_single_inv.len() >= 2 {
+                    let r = gated_single_inv.remove(0); gated_single_inv.push(((r as i32 + 12).clamp(0,127)) as u8); gated_single_inv.sort_unstable();
+                } else if rec_inv2 && gated_single_inv.len() >= 3 {
+                    let r = gated_single_inv.remove(0); let t = gated_single_inv.remove(0); gated_single_inv.push(((r as i32 + 12).clamp(0,127)) as u8); gated_single_inv.push(((t as i32 + 12).clamp(0,127)) as u8); gated_single_inv.sort_unstable();
+                } else if stop_oct && !gated_single_inv.is_empty() {
+                    let r = gated_single_inv[0] as i32; let bass = ((r - 12).clamp(0,127)) as u8; if !gated_single_inv.contains(&bass) { gated_single_inv.push(bass); gated_single_inv.sort_unstable(); }
+                }
+                let gated_single = gated_single_inv;
                 if gated_single.len() == 1 {
                     let note = gated_single[0];
                     let event_opt: Option<MidiMessage> = match pad_evt {
