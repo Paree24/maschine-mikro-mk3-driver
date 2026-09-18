@@ -137,14 +137,13 @@ fn triad_for_pad(pad_notes: &[u8], idx: usize, transpose: i32) -> Vec<u8> {
         if driver.len() < 16 { return driver.to_vec(); }
         vec![
             driver[12], driver[13], driver[14], driver[15],
-            driver[11], driver[10], driver[9], driver[8],
-            driver[7], driver[6], driver[5], driver[4],
+            driver[8], driver[9], driver[10], driver[11],
+            driver[4], driver[5], driver[6], driver[7],
             driver[0], driver[1], driver[2], driver[3],
         ]
     };
     let phys = to_phys(pad_notes);
     let base = phys[0] as i32;
-    // Derive intervals from first octave of phys (first up to 7 distinct <12)
     let mut intervals: Vec<i32> = Vec::new();
     for i in 0..phys.len().min(7) {
         let off = phys[i] as i32 - base;
@@ -156,11 +155,8 @@ fn triad_for_pad(pad_notes: &[u8], idx: usize, transpose: i32) -> Vec<u8> {
     if intervals.is_empty() {
         intervals = vec![0,2,4,5,7,9,11];
     }
-    // For pentatonic (5) etc, use its length
     let n = intervals.len() as i32;
-    // Pad idx in driver order -> phys index
-    // Map driver idx to phys index
-    let driver_to_phys_idx = [12,13,14,15,11,10,9,8,7,6,5,4,0,1,2,3];
+    let driver_to_phys_idx = [12,13,14,15,8,9,10,11,4,5,6,7,0,1,2,3];
     let phys_idx = driver_to_phys_idx[idx.min(15)] as i32;
     let root_deg = phys_idx;
     let third_deg = root_deg + 2;
