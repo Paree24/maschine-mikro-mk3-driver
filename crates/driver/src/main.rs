@@ -489,9 +489,7 @@ impl ArpMode {
 fn arp_rate_from_strip(raw: u8) -> (String, Duration) {
     let idx = ((raw as usize * 18) / 201).min(17);
     const RATES: &[(&str, f32)] = &[
-        ("3/8", 1.5), ("1/2", 2.0), ("1/3", 1.333), ("3/16", 0.75), ("1/4", 1.0), ("1/6", 0.666),
-        ("3/32", 0.375), ("1/8", 0.5), ("1/12", 0.333), ("3/64", 0.1875), ("1/16", 0.25), ("1/24", 0.166),
-        ("3/128", 0.09375), ("1/32", 0.125), ("1/48", 0.0833), ("3/256", 0.046875), ("1/64", 0.0625), ("1/96", 0.0417),
+        ("3/4", 3.0), ("1/2", 2.0), ("3/8", 1.5), ("1/3", 1.333), ("1/4", 1.0), ("3/16", 0.75), ("1/6", 0.666), ("1/8", 0.5), ("3/32", 0.375), ("1/12", 0.333), ("1/16", 0.25), ("3/64", 0.1875), ("1/24", 0.166), ("1/32", 0.125), ("3/128", 0.09375), ("1/48", 0.0833), ("1/64", 0.0625), ("1/96", 0.0417),
     ];
     let (name, beats) = RATES[idx];
     let bpm = 120.0;
@@ -546,9 +544,7 @@ fn handle_slider(port: &mut MidiOutputConnection, settings: &Settings, raw: u8, 
 fn arp_rate_from_strip_raw(raw: u8) -> (String, Duration) {
     let idx = ((raw as usize * 18) / 201).min(17);
     const RATES: &[(&str, f32)] = &[
-        ("3/8", 1.5), ("1/2", 2.0), ("1/3", 1.333), ("3/16", 0.75), ("1/4", 1.0), ("1/6", 0.666),
-        ("3/32", 0.375), ("1/8", 0.5), ("1/12", 0.333), ("3/64", 0.1875), ("1/16", 0.25), ("1/24", 0.166),
-        ("3/128", 0.09375), ("1/32", 0.125), ("1/48", 0.0833), ("3/256", 0.046875), ("1/64", 0.0625), ("1/96", 0.0417),
+        ("3/4", 3.0), ("1/2", 2.0), ("3/8", 1.5), ("1/3", 1.333), ("1/4", 1.0), ("3/16", 0.75), ("1/6", 0.666), ("1/8", 0.5), ("3/32", 0.375), ("1/12", 0.333), ("1/16", 0.25), ("3/64", 0.1875), ("1/24", 0.166), ("1/32", 0.125), ("3/128", 0.09375), ("1/48", 0.0833), ("1/64", 0.0625), ("1/96", 0.0417),
     ];
     let (name, beats) = RATES[idx];
     let bpm = 120.0;
@@ -855,6 +851,47 @@ fn main_loop(
                                 lights.set_button(Buttons::Notes, Brightness::Dim);
                                 changed_lights = true;
                             }
+                        } else if status && button == Buttons::Maschine && arp_enabled {
+                            // Maschine = faster (next rate), Star = slower (prev)
+                            const RATES: &[(&str, f32)] = &[
+                                ("3/4", 3.0), ("1/2", 2.0), ("3/8", 1.5), ("1/3", 1.333), ("1/4", 1.0), ("3/16", 0.75), ("1/6", 0.666), ("1/8", 0.5), ("3/32", 0.375), ("1/12", 0.333), ("1/16", 0.25), ("3/64", 0.1875), ("1/24", 0.166), ("1/32", 0.125), ("3/128", 0.09375), ("1/48", 0.0833), ("1/64", 0.0625), ("1/96", 0.0417),
+                            ];
+                            let cur_idx = RATES.iter().position(|(n,_)| *n == arp_rate_name).unwrap_or(10);
+                            let next_idx = (cur_idx + 1) % RATES.len();
+                            let (next_name, beats) = RATES[next_idx];
+                            arp_rate = Duration::from_secs_f32(60.0/120.0 * beats);
+                            arp_rate_name = next_name.to_string();
+                            println!("Arp rate -> {} via Maschine", arp_rate_name);
+                            let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
+                            if lights.button_has_light(Buttons::Maschine) {
+                                lights.set_button(Buttons::Maschine, Brightness::Bright);
+                                changed_lights = true;
+                            }
+                        } else if !status && button == Buttons::Maschine && arp_enabled {
+                            if lights.button_has_light(Buttons::Maschine) {
+                                lights.set_button(Buttons::Maschine, Brightness::Dim);
+                                changed_lights = true;
+                            }
+                        } else if status && button == Buttons::Star && arp_enabled {
+                            const RATES: &[(&str, f32)] = &[
+                                ("3/4", 3.0), ("1/2", 2.0), ("3/8", 1.5), ("1/3", 1.333), ("1/4", 1.0), ("3/16", 0.75), ("1/6", 0.666), ("1/8", 0.5), ("3/32", 0.375), ("1/12", 0.333), ("1/16", 0.25), ("3/64", 0.1875), ("1/24", 0.166), ("1/32", 0.125), ("3/128", 0.09375), ("1/48", 0.0833), ("1/64", 0.0625), ("1/96", 0.0417),
+                            ];
+                            let cur_idx = RATES.iter().position(|(n,_)| *n == arp_rate_name).unwrap_or(10);
+                            let next_idx = (cur_idx as i32 - 1).rem_euclid(RATES.len() as i32) as usize;
+                            let (next_name, beats) = RATES[next_idx];
+                            arp_rate = Duration::from_secs_f32(60.0/120.0 * beats);
+                            arp_rate_name = next_name.to_string();
+                            println!("Arp rate -> {} via Star", arp_rate_name);
+                            let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
+                            if lights.button_has_light(Buttons::Star) {
+                                lights.set_button(Buttons::Star, Brightness::Bright);
+                                changed_lights = true;
+                            }
+                        } else if !status && button == Buttons::Star && arp_enabled {
+                            if lights.button_has_light(Buttons::Star) {
+                                lights.set_button(Buttons::Star, Brightness::Dim);
+                                changed_lights = true;
+                            }
                         } else if status && button == Buttons::Tempo && arp_enabled {
                             // Tempo now free (was arp rate) – keep dim, no arp rate here (encoder does rate)
                             if lights.button_has_light(Buttons::Tempo) {
@@ -1084,35 +1121,11 @@ fn main_loop(
             }
             let encoder_val = buf[7];
             if encoder_val != 0 && should_handle_encoder_rotation(encoder_val) {
-                if arp_enabled {
-                    let delta = encoder_val as i8;
-                    // Pure fractions as per user: 3/8,1/2,1/3,3/16,1/4,1/6,3/32,1/8,1/12,3/64,1/16,1/24,3/128,1/32,1/48,3/256,1/64,1/96
-                    const RATES: &[(&str, f32)] = &[
-                        ("3/8", 1.5), ("1/2", 2.0), ("1/3", 1.333), ("3/16", 0.75), ("1/4", 1.0), ("1/6", 0.666),
-                        ("3/32", 0.375), ("1/8", 0.5), ("1/12", 0.333), ("3/64", 0.1875), ("1/16", 0.25), ("1/24", 0.166),
-                        ("3/128", 0.09375), ("1/32", 0.125), ("1/48", 0.0833), ("3/256", 0.046875), ("1/64", 0.0625), ("1/96", 0.0417),
-                    ];
-                    let cur_idx = RATES.iter().position(|(n,_)| *n == arp_rate_name).unwrap_or(10);
-                    let step = delta as i32;
-                    // More sensitive: each encoder tick = 1, fast twist already delta 2
-                    let next_idx = (cur_idx as i32 + step).rem_euclid(RATES.len() as i32) as usize;
-                    let (next_name, beats) = RATES[next_idx];
-                    arp_rate = Duration::from_secs_f32(60.0/120.0 * beats);
-                    arp_rate_name = next_name.to_string();
-                    println!("Arp rate -> {} ({:?}) via Encoder {}", arp_rate_name, arp_rate, delta);
-                    let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
-                    if lights.button_has_light(Buttons::EncoderPress) {
-                        lights.set_button(Buttons::EncoderPress, Brightness::Bright);
-                        changed_lights = true;
-                    }
-                } else {
-                    println!("Encoder: {}", encoder_val as i8);
-                    handle_encoder(port, settings, encoder_val);
-                }
-            } else if arp_enabled {
-                // Encoder released? keep LED dim
+                println!("Encoder: {}", encoder_val as i8);
+                handle_encoder(port, settings, encoder_val);
                 if lights.button_has_light(Buttons::EncoderPress) {
-                    // keep as is
+                    lights.set_button(Buttons::EncoderPress, Brightness::Bright);
+                    changed_lights = true;
                 }
             }
             let slider_val = buf[10];
