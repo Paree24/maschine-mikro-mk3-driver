@@ -430,9 +430,52 @@ fn handle_encoder(port: &mut MidiOutputConnection, settings: &Settings, raw: u8)
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum ArpMode { Up, Down, UpDown, DownUp, Random }
+
+impl ArpMode {
+    fn next(self) -> Self {
+        match self {
+            ArpMode::Up => ArpMode::Down,
+            ArpMode::Down => ArpMode::UpDown,
+            ArpMode::UpDown => ArpMode::DownUp,
+            ArpMode::DownUp => ArpMode::Random,
+            ArpMode::Random => ArpMode::Up,
+        }
+    }
+    fn name(self) -> &'static str {
+        match self {
+            ArpMode::Up => "Up",
+            ArpMode::Down => "Down",
+            ArpMode::UpDown => "UpDown",
+            ArpMode::DownUp => "DownUp",
+            ArpMode::Random => "Random",
+        }
+    }
+}
+
+// Strip -> arp rate: 1/1 .. 1/64 with dotted/triplet at appropriate positions
+// 25 LED positions -> map to 19 rates (slow->fast) plus repeats at ends
+fn arp_rate_from_strip(raw: u8) -> (String, Duration) {
+    // raw 1..200 -> 0..127 scaled already, but we get raw 1..200 directly
+    // Map raw 0..200 to index 0..18
+    let idx = ((raw as usize * 19) / 201).min(18);
+    // Rates defined as (name, beats) where beats = quarter notes per step
+    // 1/1 = 4 beats, 1/2 =2, 1/4=1, 1/8=0.5, 1/16=0.25, 1/32=0.125, 1/64=0.0625
+    // Dotted = *1.5, Triplet = *2/3
+    const RATES: &[(&str, f32)] = &[
+        ("1/1", 4.0), ("1/2", 2.0), ("1/2.", 3.0), ("1/2T", 1.333), ("1/4", 1.0), ("1/4.", 1.5), ("1/4T", 0.666),
+        ("1/8", 0.5), ("1/8.", 0.75), ("1/8T", 0.333), ("1/16", 0.25), ("1/16.", 0.375), ("1/16T", 0.166),
+        ("1/32", 0.125), ("1/32.", 0.1875), ("1/32T", 0.0833), ("1/64", 0.0625), ("1/64.", 0.09375), ("1/64T", 0.0417),
+    ];
+    let (name, beats) = RATES[idx];
+    // BPM 120 default, 24 PPQ clock not needed for internal sleep
+    let bpm = 120.0;
+    let secs = 60.0 / bpm * beats;
+    (name.to_string(), Duration::from_secs_f32(secs))
+}
+
 fn handle_slider(port: &mut MidiOutputConnection, settings: &Settings, raw: u8, is_pitchbend: bool) {
-    // Pitch bend should be on pad channel so it affects pad notes (Vital etc).
-    // Mod wheel also on pad channel for consistency; Arturia works with both.
     let ch = if is_pitchbend {
         settings.pad_midi_channel()
     } else {
@@ -441,11 +484,9 @@ fn handle_slider(port: &mut MidiOutputConnection, settings: &Settings, raw: u8, 
     let cc = settings.slider.cc;
     if raw == 0 {
         if is_pitchbend {
-            // strip released -> center pitchbend
             let bend = midly::PitchBend(midly::num::u14::from(8192));
             println!("Slider PitchBend center ch {}", ch);
             send_midi(port, ch, MidiMessage::PitchBend { bend });
-            // also send to midi_channel for DAWs listening there
             let ch2 = settings.effective_channel(settings.slider.channel);
             if ch2 != ch {
                 send_midi(port, ch2, MidiMessage::PitchBend { bend });
@@ -456,12 +497,10 @@ fn handle_slider(port: &mut MidiOutputConnection, settings: &Settings, raw: u8, 
     let scaled = ((raw as u16 * 127) / 200).min(127) as u8;
     let val = scaled;
     if is_pitchbend {
-            // full 0..16383 range, 8192 center at val 64
             let bend_val = (val as u32 * 16383 / 127) as u16;
             let bend = midly::num::u14::from(bend_val);
             println!("Slider -> PitchBend ch {} val {} raw {} bend {}", ch, bend_val, raw, bend_val);
             send_midi(port, ch, MidiMessage::PitchBend { bend: midly::PitchBend(bend) });
-            // mirror to other channel for compatibility (Arturia listens on midi_channel)
             let ch2 = settings.effective_channel(settings.slider.channel);
             if ch2 != ch {
                 send_midi(port, ch2, MidiMessage::PitchBend { bend: midly::PitchBend(bend) });
@@ -477,6 +516,21 @@ fn handle_slider(port: &mut MidiOutputConnection, settings: &Settings, raw: u8, 
                 },
             );
         }
+}
+
+// Arpeggiator: NoteRepeat toggles on/off, Notes cycles 5 modes, strip controls rate when arp enabled (else pitch/mod)
+// Rates from 1/1 to 1/64 with dotted/triplet at appropriate strip positions
+fn arp_rate_from_strip_raw(raw: u8) -> (String, Duration) {
+    let idx = ((raw as usize * 19) / 201).min(18);
+    const RATES: &[(&str, f32)] = &[
+        ("1/1", 4.0), ("1/2", 2.0), ("1/2.", 3.0), ("1/2T", 1.333), ("1/4", 1.0), ("1/4.", 1.5), ("1/4T", 0.666),
+        ("1/8", 0.5), ("1/8.", 0.75), ("1/8T", 0.333), ("1/16", 0.25), ("1/16.", 0.375), ("1/16T", 0.166),
+        ("1/32", 0.125), ("1/32.", 0.1875), ("1/32T", 0.0833), ("1/64", 0.0625), ("1/64.", 0.09375), ("1/64T", 0.0417),
+    ];
+    let (name, beats) = RATES[idx];
+    let bpm = 120.0;
+    let secs = 60.0 / bpm * beats;
+    (name.to_string(), Duration::from_secs_f32(secs))
 }
 
 fn main_loop(
@@ -501,6 +555,15 @@ fn main_loop(
     let mut transpose_offset: i32 = 0;
     let mut strip_is_pitchbend = settings.slider.mode == "pitchbend";
     let mut prev_slider_touched = false;
+    let mut arp_enabled = false;
+    let mut arp_mode = ArpMode::Up;
+    let mut arp_rate: Duration = Duration::from_secs_f32(60.0/120.0 * 0.25); // 1/16 at 120bpm
+    let mut arp_rate_name = "1/16".to_string();
+    let mut held_arp_notes: Vec<Vec<u8>> = Vec::new();
+    let mut arp_pos: usize = 0;
+    let mut arp_dir: i32 = 1;
+    let mut arp_last_tick = Instant::now();
+    let mut arp_current_notes: Option<Vec<u8>> = None;
 
     // For auto-clearing page selector LEDs
     let mut selector_active = false;
@@ -545,6 +608,46 @@ fn main_loop(
 
     let mut buf = [0u8; 64];
     loop {
+        // Arp tick - always synced to clock, even without HID data
+        if arp_enabled && !held_arp_notes.is_empty() && arp_last_tick.elapsed() >= arp_rate {
+            if let Some(prev) = arp_current_notes.take() {
+                for n in &prev { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOff { key: (*n).into(), vel: 0.into() }); }
+            }
+            let len = held_arp_notes.len();
+            if len > 0 {
+                let idx = match arp_mode {
+                    ArpMode::Up => { let i = arp_pos % len; arp_pos = (arp_pos + 1) % len; i },
+                    ArpMode::Down => { let i = (len - 1) - (arp_pos % len); arp_pos = (arp_pos + 1) % len; i },
+                    ArpMode::UpDown => {
+                        let cycle = if len == 1 { 1 } else { len * 2 - 2 };
+                        let pos = arp_pos % cycle;
+                        let i = if pos < len { pos } else { cycle - pos };
+                        arp_pos = (arp_pos + 1) % cycle;
+                        i
+                    },
+                    ArpMode::DownUp => {
+                        let cycle = if len == 1 { 1 } else { len * 2 - 2 };
+                        let pos = arp_pos % cycle;
+                        let i = if pos < len { len - 1 - pos } else { pos - len + 1 };
+                        arp_pos = (arp_pos + 1) % cycle;
+                        i
+                    },
+                    ArpMode::Random => {
+                        use std::collections::hash_map::DefaultHasher;
+                        use std::hash::{Hash, Hasher};
+                        let mut hasher = DefaultHasher::new();
+                        arp_pos.hash(&mut hasher);
+                        let h = hasher.finish();
+                        arp_pos = arp_pos.wrapping_add(1);
+                        (h as usize) % len
+                    },
+                };
+                let notes = held_arp_notes[idx].clone();
+                for &n in &notes { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOn { key: n.into(), vel: 100.into() }); }
+                arp_current_notes = Some(notes);
+            }
+            arp_last_tick = Instant::now();
+        }
         let size = device.read_timeout(&mut buf, 10)?;
         if size < 1 {
             if selector_active {
@@ -579,6 +682,52 @@ fn main_loop(
                     selector_since = None;
                 }
             }
+        }
+        // Arp tick - clock-synced, always
+        if arp_enabled && !held_arp_notes.is_empty() && arp_last_tick.elapsed() >= arp_rate {
+            // NoteOff previous
+            if let Some(prev) = arp_current_notes.take() {
+                for n in &prev { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOff { key: (*n).into(), vel: 0.into() }); }
+            }
+            // Select next held note(s) based on mode
+            let len = held_arp_notes.len();
+            if len > 0 {
+                let idx = match arp_mode {
+                    ArpMode::Up => { let i = arp_pos % len; arp_pos = (arp_pos + 1) % len; i },
+                    ArpMode::Down => { let i = (len - 1) - (arp_pos % len); arp_pos = (arp_pos + 1) % len; i },
+                    ArpMode::UpDown => {
+                        // 0,1,2,...,len-1,len-2,...,1,0...
+                        let cycle = if len == 1 { 1 } else { len * 2 - 2 };
+                        let pos = arp_pos % cycle;
+                        let i = if pos < len { pos } else { cycle - pos };
+                        arp_pos = (arp_pos + 1) % cycle;
+                        // dir not needed for UpDown, handled via cycle
+                        i
+                    },
+                    ArpMode::DownUp => {
+                        let cycle = if len == 1 { 1 } else { len * 2 - 2 };
+                        let pos = arp_pos % cycle;
+                        let i = if pos < len { len - 1 - pos } else { pos - len + 1 };
+                        arp_pos = (arp_pos + 1) % cycle;
+                        i
+                    },
+                    ArpMode::Random => {
+                        use std::collections::hash_map::DefaultHasher;
+                        use std::hash::{Hash, Hasher};
+                        let mut hasher = DefaultHasher::new();
+                        arp_pos.hash(&mut hasher);
+                        let h = hasher.finish();
+                        arp_pos = arp_pos.wrapping_add(1);
+                        (h as usize) % len
+                    },
+                };
+                let notes = held_arp_notes[idx].clone();
+                for &n in &notes { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOn { key: n.into(), vel: 100.into() }); }
+                arp_current_notes = Some(notes);
+                // Flash pad for current arp note
+                // Find pad that corresponds to this note? For now flash all held pads dimly
+            }
+            arp_last_tick = Instant::now();
         }
 
         let mut changed_lights = false;
@@ -627,6 +776,38 @@ fn main_loop(
                             changed_lights = true;
                         } else if !status && (button == Buttons::Pitch || button == Buttons::Mod) {
                             // release keep latched
+                        } else if status && button == Buttons::NoteRepeat {
+                            arp_enabled = !arp_enabled;
+                            println!("Arp -> {}", if arp_enabled { "on" } else { "off" });
+                            if lights.button_has_light(Buttons::NoteRepeat) {
+                                lights.set_button(Buttons::NoteRepeat, if arp_enabled { Brightness::Bright } else { Brightness::Dim });
+                            }
+                            // clear held notes when disabling
+                            if !arp_enabled {
+                                if let Some(notes) = arp_current_notes.take() {
+                                    for n in notes { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOff { key: n.into(), vel: 0.into() }); }
+                                }
+                                held_arp_notes.clear();
+                                arp_pos = 0;
+                                arp_dir = 1;
+                            }
+                            changed_lights = true;
+                        } else if !status && button == Buttons::NoteRepeat {
+                            // keep LED
+                        } else if status && button == Buttons::Notes {
+                            arp_mode = arp_mode.next();
+                            println!("Arp mode -> {}", arp_mode.name());
+                            if lights.button_has_light(Buttons::Notes) {
+                                // blink to indicate mode? keep Bright
+                                lights.set_button(Buttons::Notes, Brightness::Bright);
+                            }
+                            changed_lights = true;
+                            let _ = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset);
+                        } else if !status && button == Buttons::Notes {
+                            if lights.button_has_light(Buttons::Notes) {
+                                lights.set_button(Buttons::Notes, Brightness::Dim);
+                                changed_lights = true;
+                            }
                         } else if status && button == Buttons::Chords {
                             chords_active = !chords_active;
                             println!("Chords mode -> {}", if chords_active { "triads" } else { "single" });
@@ -831,7 +1012,27 @@ fn main_loop(
             }
             let slider_val = buf[10];
             let slider_touched = slider_val != 0;
-            if slider_touched {
+            if arp_enabled && slider_touched {
+                // Strip controls arp rate when arp is on (1/1 to 1/64 dotted/triplet)
+                let (name, dur) = arp_rate_from_strip_raw(slider_val);
+                if dur != arp_rate {
+                    arp_rate = dur;
+                    arp_rate_name = name.clone();
+                    println!("Arp rate -> {} ({:?})", name, dur);
+                    let _ = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset);
+                }
+                let cnt = (slider_val as i32 - 1 + 5) * 25 / 200 - 1;
+                for i in 0..25 {
+                    let b = match cnt - i {
+                        0 => Brightness::Bright,
+                        1..=25 => Brightness::Dim,
+                        _ => Brightness::Off,
+                    };
+                    lights.set_slider(i as usize, b);
+                }
+                changed_lights = true;
+                prev_slider_touched = true;
+            } else if slider_touched {
                 println!("Slider: {}", slider_val);
                 let cnt = (slider_val as i32 - 1 + 5) * 25 / 200 - 1;
                 for i in 0..25 {
@@ -846,14 +1047,18 @@ fn main_loop(
                 handle_slider(port, settings, slider_val, strip_is_pitchbend);
                 prev_slider_touched = true;
             } else if prev_slider_touched {
-                // strip released
-                if strip_is_pitchbend {
+                if arp_enabled {
+                    // keep arp rate LEDs dim when released, don't center pitchbend
+                    for i in 0..25 { lights.set_slider(i, Brightness::Dim); }
+                    changed_lights = true;
+                } else if strip_is_pitchbend {
                     handle_slider(port, settings, 0, true);
+                    for i in 0..25 { lights.set_slider(i, Brightness::Dim); }
+                    changed_lights = true;
+                } else {
+                    for i in 0..25 { lights.set_slider(i, Brightness::Dim); }
+                    changed_lights = true;
                 }
-                for i in 0..25 {
-                    lights.set_slider(i, Brightness::Dim);
-                }
-                changed_lights = true;
                 prev_slider_touched = false;
             }
         } else if buf[0] == 0x02 {
@@ -930,6 +1135,40 @@ fn main_loop(
                         }
                         _ => continue,
                     }
+                }
+
+                if arp_enabled {
+                    let scale_name = settings.scale_names.get(current_page).map(|s| s.as_str());
+                    let notes = triad_for_pad(&pad_pages[current_page], idx as usize, transpose_offset, scale_name, &settings.chord_types);
+                    match pad_evt {
+                        PadEventType::NoteOn | PadEventType::PressOn => {
+                            for n in &notes {
+                                if !held_arp_notes.iter().any(|v| v[0] == *n) {
+                                    held_arp_notes.push(vec![*n]);
+                                }
+                            }
+                            println!("Arp held add {:?} -> held {}", notes, held_arp_notes.len());
+                            lights.set_pad(idx as usize, parse_pad_color(&settings.pad_page_colors.as_ref().and_then(|c| c.get(current_page)).unwrap_or(&"Blue".to_string())).unwrap_or(PadColors::Blue), Brightness::Normal);
+                            changed_lights = true;
+                        }
+                        PadEventType::NoteOff | PadEventType::PressOff => {
+                            for n in &notes {
+                                held_arp_notes.retain(|v| v[0] != *n);
+                            }
+                            println!("Arp held remove {:?} -> held {}", notes, held_arp_notes.len());
+                            if held_arp_notes.is_empty() {
+                                if let Some(cur) = arp_current_notes.take() {
+                                    for n in cur { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOff { key: n.into(), vel: 0.into() }); }
+                                }
+                                arp_pos = 0;
+                                arp_dir = 1;
+                            }
+                            lights.set_pad(idx as usize, parse_pad_color(&settings.pad_page_colors.as_ref().and_then(|c| c.get(current_page)).unwrap_or(&"Blue".to_string())).unwrap_or(PadColors::Blue), Brightness::Dim);
+                            changed_lights = true;
+                        }
+                        _ => {}
+                    }
+                    continue;
                 }
 
                 // Gate: dim by default, normal when pressed, dim when released
