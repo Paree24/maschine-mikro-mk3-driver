@@ -570,6 +570,7 @@ fn main_loop(
     let mut lock_page_selected_via_pad = false;
     let mut chords_active = false;
     let mut tetrad_active = false;
+    let mut step_tetrad_active = false;
     let mut button_prev = [false; 64];
     let norm_map = normalized_button_map(settings);
     let mut transpose_offset: i32 = 0;
@@ -929,13 +930,30 @@ fn main_loop(
                             // keep LED
                         } else if status && button == Buttons::Chords {
                             chords_active = !chords_active;
-                            println!("Chords mode -> {}", if chords_active { "triads" } else { "single" });
+                            if chords_active { step_tetrad_active = false; if lights.button_has_light(Buttons::Step) { lights.set_button(Buttons::Step, Brightness::Dim); } }
+                            println!("Chords mode -> {}", if chords_active { "triads/power" } else { "single" });
                             if lights.button_has_light(Buttons::Chords) {
                                 lights.set_button(Buttons::Chords, if chords_active { Brightness::Bright } else { Brightness::Dim });
+                            }
+                            if lights.button_has_light(Buttons::Step) {
+                                lights.set_button(Buttons::Step, Brightness::Dim);
                             }
                             changed_lights = true;
                             let _ = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset);
                         } else if !status && button == Buttons::Chords {
+                            // keep LED
+                        } else if status && button == Buttons::Step {
+                            step_tetrad_active = !step_tetrad_active;
+                            if step_tetrad_active { chords_active = false; if lights.button_has_light(Buttons::Chords) { lights.set_button(Buttons::Chords, Brightness::Dim); } }
+                            println!("Step mode -> {}", if step_tetrad_active { "tetrad 1-3-5-7 / power+oct" } else { "single" });
+                            if lights.button_has_light(Buttons::Step) {
+                                lights.set_button(Buttons::Step, if step_tetrad_active { Brightness::Bright } else { Brightness::Dim });
+                            }
+                            if lights.button_has_light(Buttons::Chords) {
+                                lights.set_button(Buttons::Chords, Brightness::Dim);
+                            }
+                            changed_lights = true;
+                        } else if !status && button == Buttons::Step {
                             // keep LED
                         } else if let Some(action) = transpose_action(settings, button) {
                             if status {
@@ -1334,6 +1352,58 @@ fn main_loop(
                 let scaled_vel = velocity;
                 let channel = settings.pad_midi_channel();
 
+                // Step: tetrad 1-3-5-7 for 7-tone, fifth+octave for non-7
+                if step_tetrad_active {
+                    let scale_name = settings.scale_names.get(current_page).map(|s| s.as_str());
+                    let mut tmp = settings.chord_types.clone();
+                    if let Some(name) = scale_name { tmp.insert(name.to_string(), "tetrad".to_string()); }
+                    let notes_tetrad = triad_for_pad(notes, idx as usize, transpose_offset, scale_name, &tmp);
+                    // For non-7, triad_for_pad with tetrad will still give 4 notes (1-3-5-7) which for pentatonic is not ideal,
+                    // so for non-7 we want power+oct (root, fifth, octave)
+                    let out_notes = {
+                        let phys = {
+                            let to_phys = |driver: &[u8]| -> Vec<u8> {
+                                if driver.len() < 16 { return driver.to_vec(); }
+                                vec![driver[12], driver[13], driver[14], driver[15], driver[8], driver[9], driver[10], driver[11], driver[4], driver[5], driver[6], driver[7], driver[0], driver[1], driver[2], driver[3]]
+                            };
+                            let p = to_phys(notes);
+                            let base = p[0] as i32;
+                            let mut set = std::collections::HashSet::new();
+                            for &n in &p { set.insert((n as i32 - base).rem_euclid(12)); }
+                            let mut iv: Vec<i32> = set.into_iter().collect();
+                            iv.sort_unstable();
+                            iv.len()
+                        };
+                        if notes_tetrad.len() == 4 { notes_tetrad } else {
+                            // For non-7, make fifth+octave: root, fifth, octave
+                            let base_n = notes_tetrad[0];
+                            let fifth = ((base_n as i32 + 7).clamp(0,127)) as u8;
+                            let oct = ((base_n as i32 + 12).clamp(0,127)) as u8;
+                            vec![base_n, fifth, oct]
+                        }
+                    };
+                    // Use out_notes for Step
+                    let tetrad = if out_notes.len() >= 3 { out_notes } else { triad_for_pad(notes, idx as usize, transpose_offset, scale_name, &settings.chord_types) };
+                    match pad_evt {
+                        PadEventType::NoteOn | PadEventType::PressOn => {
+                            for n in &tetrad { send_midi(port, channel, MidiMessage::NoteOn { key: (*n).into(), vel: scaled_vel.into() }); }
+                        }
+                        PadEventType::NoteOff | PadEventType::PressOff => {
+                            for n in &tetrad { send_midi(port, channel, MidiMessage::NoteOff { key: (*n).into(), vel: scaled_vel.into() }); }
+                        }
+                        PadEventType::Aftertouch => {
+                            match settings.pad_aftertouch.as_str() {
+                                "poly" => { for n in &tetrad { send_midi(port, channel, MidiMessage::Aftertouch { key: (*n).into(), vel: scaled_vel.into() }); } },
+                                "channel" => send_midi(port, channel, MidiMessage::ChannelAftertouch { vel: scaled_vel.into() }),
+                                "cc" => send_midi(port, channel, MidiMessage::Controller { controller: 74u8.into(), value: scaled_vel.into() }),
+                                _ => {}
+                            }
+                        }
+                        #[allow(unreachable_patterns)]
+                        _ => {}
+                    }
+                    continue;
+                }
                 // Chords mode: configurable via [chord_types] (power/triad/tetrad), default triad for 7, power for others
                 if chords_active {
                     let scale_name = settings.scale_names.get(current_page).map(|s| s.as_str());
