@@ -1,4 +1,6 @@
 # Maschine Mikro MK3 Linux Driver
+> ⚠️ **Vibe-coded, personal-use fork — use with caution.** This is a heavily modified fork of [r00tman/maschine-mikro-mk3-driver](https://github.com/r00tman/maschine-mikro-mk3-driver), vibe-coded for personal use. No warranty, may contain rough edges — review `example_config.toml` and `USER_GUIDE.md` before use.
+
 Native Instruments Maschine Mikro MK3 userspace MIDI driver for Linux.
 
 Inspired by [maschine.rs](https://github.com/wrl/maschine.rs).

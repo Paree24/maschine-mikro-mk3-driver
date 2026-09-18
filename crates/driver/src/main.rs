@@ -156,6 +156,17 @@ fn triad_for_pad(pad_notes: &[u8], idx: usize, transpose: i32) -> Vec<u8> {
         intervals = vec![0,2,4,5,7,9,11];
     }
     let n = intervals.len() as i32;
+    // Non-7-tone scales (chromatic 12, pentatonic 5, blues 6) are tricky for diatonic triads
+    // Use power chord (root + perfect fifth, fixed 7 semitones) for those
+    if n != 7 {
+        let phys_idx = [12,13,14,15,8,9,10,11,4,5,6,7,0,1,2,3][idx.min(15)] as i32;
+        let root = base + (phys_idx / n) * 12 + intervals[(phys_idx % n) as usize];
+        let fifth = root + 7;
+        return vec![
+            ((root + transpose).clamp(0,127)) as u8,
+            ((fifth + transpose).clamp(0,127)) as u8,
+        ];
+    }
     let driver_to_phys_idx = [12,13,14,15,8,9,10,11,4,5,6,7,0,1,2,3];
     let phys_idx = driver_to_phys_idx[idx.min(15)] as i32;
     let root_deg = phys_idx;
