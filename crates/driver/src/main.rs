@@ -571,6 +571,16 @@ fn main_loop(
     let mut chords_active = false;
     let mut tetrad_active = false;
     let mut step_tetrad_active = false;
+    // Gate holds for chord/page modifiers (all momentary)
+    let mut padmode_held = false;
+    let mut scene_held = false;
+    let mut pattern_held = false;
+    let mut events_held = false;
+    let mut variation_held = false;
+    let mut duplicate_held = false;
+    let mut select_held = false;
+    let mut solo_held = false;
+    let mut mute_held = false;
     let mut button_prev = [false; 64];
     let norm_map = normalized_button_map(settings);
     #[derive(Clone, Copy, PartialEq, Debug)] enum StripMode { PitchBend, ModWheel, Free }
@@ -598,6 +608,12 @@ fn main_loop(
     // For auto-clearing page selector LEDs
     let mut selector_active = false;
     let mut selector_since: Option<Instant> = None;
+
+    // 16 fresh drum pages unlocked by PadMode gate (mainly for drums)
+    let drum_pages: Vec<Vec<u8>> = {
+        let base: Vec<u8> = vec![36,38,42,46,41,43,45,47,37,39,44,49,51,54,56,59];
+        (0..16).map(|p| base.iter().map(|n| (( *n as i32 + (p as i32 * 2) ).clamp(0,127) as u8)).collect()).collect()
+    };
 
     // Init Pitch/Mod/Perform LEDs to reflect strip mode - 3-way exclusive, exactly one Bright, others Dim
     {
@@ -1022,6 +1038,69 @@ fn main_loop(
                             changed_lights = true;
                         } else if !status && button == Buttons::Perform {
                             // keep LED latched (3-way toggle: release does not change mode)
+                        } else if button == Buttons::PadMode {
+                            padmode_held = status;
+                            if lights.button_has_light(Buttons::PadMode) {
+                                lights.set_button(Buttons::PadMode, if status { Brightness::Bright } else { Brightness::Dim });
+                                changed_lights = true;
+                            }
+                            println!("PadMode gate -> {}", if status { "on (16 drum pages)" } else { "off" });
+                        } else if button == Buttons::Scene {
+                            scene_held = status;
+                            if lights.button_has_light(Buttons::Scene) {
+                                lights.set_button(Buttons::Scene, if status { Brightness::Bright } else { Brightness::Dim });
+                                changed_lights = true;
+                            }
+                            println!("Scene gate -> {} (triad->tetrad)", if status { "on" } else { "off" });
+                        } else if button == Buttons::Pattern {
+                            pattern_held = status;
+                            if lights.button_has_light(Buttons::Pattern) {
+                                lights.set_button(Buttons::Pattern, if status { Brightness::Bright } else { Brightness::Dim });
+                                changed_lights = true;
+                            }
+                            println!("Pattern gate -> {} (tetrad->triad)", if status { "on" } else { "off" });
+                        } else if button == Buttons::Events {
+                            events_held = status;
+                            if lights.button_has_light(Buttons::Events) {
+                                lights.set_button(Buttons::Events, if status { Brightness::Bright } else { Brightness::Dim });
+                                changed_lights = true;
+                            }
+                            println!("Events gate -> {} (major->minor)", if status { "on" } else { "off" });
+                        } else if button == Buttons::Variation {
+                            variation_held = status;
+                            if lights.button_has_light(Buttons::Variation) {
+                                lights.set_button(Buttons::Variation, if status { Brightness::Bright } else { Brightness::Dim });
+                                changed_lights = true;
+                            }
+                            println!("Variation gate -> {} (minor->major)", if status { "on" } else { "off" });
+                        } else if button == Buttons::Duplicate {
+                            duplicate_held = status;
+                            if lights.button_has_light(Buttons::Duplicate) {
+                                lights.set_button(Buttons::Duplicate, if status { Brightness::Bright } else { Brightness::Dim });
+                                changed_lights = true;
+                            }
+                            println!("Duplicate gate -> {} (any->5ths)", if status { "on" } else { "off" });
+                        } else if button == Buttons::Select {
+                            select_held = status;
+                            if lights.button_has_light(Buttons::Select) {
+                                lights.set_button(Buttons::Select, if status { Brightness::Bright } else { Brightness::Dim });
+                                changed_lights = true;
+                            }
+                            println!("Select gate -> {} (any->5th+oct)", if status { "on" } else { "off" });
+                        } else if button == Buttons::Solo {
+                            solo_held = status;
+                            if lights.button_has_light(Buttons::Solo) {
+                                lights.set_button(Buttons::Solo, if status { Brightness::Bright } else { Brightness::Dim });
+                                changed_lights = true;
+                            }
+                            println!("Solo gate -> {} (+9th)", if status { "on" } else { "off" });
+                        } else if button == Buttons::Mute {
+                            mute_held = status;
+                            if lights.button_has_light(Buttons::Mute) {
+                                lights.set_button(Buttons::Mute, if status { Brightness::Bright } else { Brightness::Dim });
+                                changed_lights = true;
+                            }
+                            println!("Mute gate -> {} (+11th)", if status { "on" } else { "off" });
                         } else if let Some(action) = transpose_action(settings, button) {
                             if status {
                                 let delta = match action {
@@ -1357,14 +1436,43 @@ fn main_loop(
                 }
 
                 if arp_enabled {
-                    // Arp arpeggiates held notes; if Chords, use triad/power notes
-                    let base_notes: Vec<u8> = if chords_active {
+                    // Arp arpeggiates held notes; respect PadMode drum pages and gate modifiers
+                    let arp_notes_src: &Vec<u8> = if padmode_held { &drum_pages[current_page % drum_pages.len()] } else { &pad_pages[current_page] };
+                    let mut base_notes: Vec<u8> = if chords_active {
                         let scale_name = settings.scale_names.get(current_page).map(|s| s.as_str());
-                        triad_for_pad(&pad_pages[current_page], idx as usize, transpose_offset, scale_name, &settings.chord_types)
+                        triad_for_pad(arp_notes_src, idx as usize, transpose_offset, scale_name, &settings.chord_types)
+                    } else if step_tetrad_active {
+                        let scale_name = settings.scale_names.get(current_page).map(|s| s.as_str());
+                        let phys = {
+                            let to_phys = |driver: &[u8]| -> Vec<u8> { if driver.len() < 16 { return driver.to_vec(); } vec![driver[12], driver[13], driver[14], driver[15], driver[8], driver[9], driver[10], driver[11], driver[4], driver[5], driver[6], driver[7], driver[0], driver[1], driver[2], driver[3]] };
+                            let p = to_phys(arp_notes_src); let base = p[0] as i32; let mut set = std::collections::HashSet::new(); for &n in &p { set.insert((n as i32 - base).rem_euclid(12)); } let mut iv: Vec<i32> = set.into_iter().collect(); iv.sort_unstable(); iv.len()
+                        };
+                        if phys == 7 {
+                            let mut tmp = settings.chord_types.clone(); if let Some(name) = scale_name { tmp.insert(name.to_string(), "tetrad".to_string()); }
+                            triad_for_pad(arp_notes_src, idx as usize, transpose_offset, scale_name, &tmp)
+                        } else {
+                            let base_n = arp_notes_src[idx as usize] as i32; let root = ((base_n + transpose_offset).clamp(0,127)) as u8; let fifth = ((root as i32 + 7).clamp(0,127)) as u8; let oct = ((root as i32 + 12).clamp(0,127)) as u8; vec![root, fifth, oct]
+                        }
                     } else {
-                        let base = pad_pages[current_page][idx as usize] as i32;
+                        let base = arp_notes_src[idx as usize] as i32;
                         vec![((base + transpose_offset).clamp(0,127)) as u8]
                     };
+                    // Apply gate modifiers to arp base (Duplicate/Select/Solo/Mute/Scene/Pattern etc.)
+                    {
+                        if !base_notes.is_empty() {
+                            if duplicate_held && !select_held { let r = base_notes[0] as i32; base_notes = vec![r as u8, ((r+7).clamp(0,127)) as u8]; }
+                            else if select_held { let r = base_notes[0] as i32; base_notes = vec![r as u8, ((r+7).clamp(0,127)) as u8, ((r+12).clamp(0,127)) as u8]; }
+                            else {
+                                if scene_held && base_notes.len() == 3 { let mut tmp = settings.chord_types.clone(); let sn = settings.scale_names.get(current_page).map(|s| s.as_str()); if let Some(name) = sn { tmp.insert(name.to_string(), "tetrad".to_string()); } base_notes = triad_for_pad(arp_notes_src, idx as usize, transpose_offset, sn, &tmp); }
+                                if pattern_held && base_notes.len() == 4 { base_notes.truncate(3); }
+                                if events_held && base_notes.len() >=2 { let r = base_notes[0] as i32; let t = base_notes[1] as i32; if (t-r).rem_euclid(12)==4 { base_notes[1]=((t-1).clamp(0,127)) as u8; } }
+                                if variation_held && base_notes.len() >=2 { let r = base_notes[0] as i32; let t = base_notes[1] as i32; if (t-r).rem_euclid(12)==3 { base_notes[1]=((t+1).clamp(0,127)) as u8; } }
+                            }
+                            if solo_held { let r = base_notes[0] as i32; let n = ((r+14).clamp(0,127)) as u8; if !base_notes.contains(&n) { base_notes.push(n); } }
+                            if mute_held { let r = base_notes[0] as i32; let n = ((r+17).clamp(0,127)) as u8; if !base_notes.contains(&n) { base_notes.push(n); } }
+                            base_notes.sort_unstable(); base_notes.dedup();
+                        }
+                    }
                     // For arp, expand each base note across octaves but keep held_arp_notes as single notes per pad
                     // The actual octave expansion is done in the arp tick to be cyclic (C1 G1 C2 G2) not grouped (C1 C2 G1 G2)
                     match pad_evt {
@@ -1435,8 +1543,12 @@ fn main_loop(
                     changed_lights = true;
                 }
 
-                // Resolve note for current page with transpose
-                let notes = &pad_pages[current_page];
+                // Resolve note for current page with transpose - PadMode gate unlocks 16 fresh drum pages
+                let notes: &Vec<u8> = if padmode_held {
+                    &drum_pages[current_page % drum_pages.len()]
+                } else {
+                    &pad_pages[current_page]
+                };
                 if (idx as usize) >= notes.len() {
                     continue;
                 }
@@ -1474,6 +1586,42 @@ fn main_loop(
                         vec![root, fifth, oct]
                     };
                     let tetrad = out_notes;
+                    // Gate modifiers for Step tetrad
+                    let gated_step = {
+                        let mut g = tetrad.clone();
+                        if !g.is_empty() {
+                            if duplicate_held && !select_held {
+                                let root = g[0] as i32;
+                                let fifth = ((root + 7).clamp(0,127)) as u8;
+                                g = vec![root as u8, fifth];
+                            } else if select_held {
+                                let root = g[0] as i32;
+                                let fifth = ((root + 7).clamp(0,127)) as u8;
+                                let oct = ((root + 12).clamp(0,127)) as u8;
+                                g = vec![root as u8, fifth, oct];
+                            } else {
+                                if scene_held && g.len() == 3 {
+                                    let mut tmp = settings.chord_types.clone();
+                                    if let Some(name) = scale_name { tmp.insert(name.to_string(), "tetrad".to_string()); }
+                                    g = triad_for_pad(notes, idx as usize, transpose_offset, scale_name, &tmp);
+                                }
+                                if pattern_held && g.len() == 4 { g.truncate(3); }
+                                if events_held && g.len() >= 2 {
+                                    let root = g[0] as i32; let third = g[1] as i32;
+                                    if (third - root).rem_euclid(12) == 4 { g[1] = ((third - 1).clamp(0,127)) as u8; }
+                                }
+                                if variation_held && g.len() >= 2 {
+                                    let root = g[0] as i32; let third = g[1] as i32;
+                                    if (third - root).rem_euclid(12) == 3 { g[1] = ((third + 1).clamp(0,127)) as u8; }
+                                }
+                            }
+                            if solo_held { let root = g[0] as i32; let n = ((root + 14).clamp(0,127)) as u8; if !g.contains(&n) { g.push(n); } }
+                            if mute_held { let root = g[0] as i32; let n = ((root + 17).clamp(0,127)) as u8; if !g.contains(&n) { g.push(n); } }
+                            g.sort_unstable(); g.dedup();
+                        }
+                        g
+                    };
+                    let tetrad = gated_step;
                     match pad_evt {
                         PadEventType::NoteOn | PadEventType::PressOn => {
                             for n in &tetrad { send_midi(port, channel, MidiMessage::NoteOn { key: (*n).into(), vel: scaled_vel.into() }); }
@@ -1498,6 +1646,29 @@ fn main_loop(
                 if chords_active {
                     let scale_name = settings.scale_names.get(current_page).map(|s| s.as_str());
                     let triad = triad_for_pad(notes, idx as usize, transpose_offset, scale_name, &settings.chord_types);
+                    let gated: Vec<u8> = {
+                        let mut g = triad;
+                        if !g.is_empty() {
+                            if duplicate_held && !select_held {
+                                let root = g[0] as i32; let fifth = ((root + 7).clamp(0,127)) as u8; g = vec![root as u8, fifth];
+                            } else if select_held {
+                                let root = g[0] as i32; let fifth = ((root + 7).clamp(0,127)) as u8; let oct = ((root + 12).clamp(0,127)) as u8; g = vec![root as u8, fifth, oct];
+                            } else {
+                                if scene_held && g.len() == 3 {
+                                    let mut tmp = settings.chord_types.clone(); if let Some(name) = scale_name { tmp.insert(name.to_string(), "tetrad".to_string()); }
+                                    g = triad_for_pad(notes, idx as usize, transpose_offset, scale_name, &tmp);
+                                }
+                                if pattern_held && g.len() == 4 { g.truncate(3); }
+                                if events_held && g.len() >= 2 { let root = g[0] as i32; let third = g[1] as i32; if (third - root).rem_euclid(12) == 4 { g[1] = ((third - 1).clamp(0,127)) as u8; } }
+                                if variation_held && g.len() >= 2 { let root = g[0] as i32; let third = g[1] as i32; if (third - root).rem_euclid(12) == 3 { g[1] = ((third + 1).clamp(0,127)) as u8; } }
+                            }
+                            if solo_held { let root = g[0] as i32; let n = ((root + 14).clamp(0,127)) as u8; if !g.contains(&n) { g.push(n); } }
+                            if mute_held { let root = g[0] as i32; let n = ((root + 17).clamp(0,127)) as u8; if !g.contains(&n) { g.push(n); } }
+                            g.sort_unstable(); g.dedup();
+                        }
+                        g
+                    };
+                    let triad = gated;
                     match pad_evt {
                         PadEventType::NoteOn | PadEventType::PressOn => {
                             for n in triad {
@@ -1512,7 +1683,6 @@ fn main_loop(
                         PadEventType::Aftertouch => {
                             match settings.pad_aftertouch.as_str() {
                                 "poly" => {
-                                    let triad = triad_for_pad(notes, idx as usize, transpose_offset, scale_name, &settings.chord_types);
                                     for n in triad {
                                         send_midi(port, channel, MidiMessage::Aftertouch { key: n.into(), vel: scaled_vel.into() });
                                     }
@@ -1530,38 +1700,61 @@ fn main_loop(
 
                 let base = notes[idx as usize] as i32;
                 let note = ((base + transpose_offset).clamp(0, 127)) as u8;
-
-                let event_opt: Option<MidiMessage> = match pad_evt {
-                    PadEventType::NoteOn | PadEventType::PressOn => Some(MidiMessage::NoteOn {
-                        key: note.into(),
-                        vel: scaled_vel.into(),
-                    }),
-                    PadEventType::NoteOff | PadEventType::PressOff => Some(MidiMessage::NoteOff {
-                        key: note.into(),
-                        vel: scaled_vel.into(),
-                    }),
-                    PadEventType::Aftertouch => match settings.pad_aftertouch.as_str() {
-                        "poly" => Some(MidiMessage::Aftertouch {
-                            key: note.into(),
-                            vel: scaled_vel.into(),
-                        }),
-                        "channel" => Some(MidiMessage::ChannelAftertouch {
-                            vel: scaled_vel.into(),
-                        }),
-                        "cc" => {
-                            Some(MidiMessage::Controller {
-                                controller: 74u8.into(),
-                                value: scaled_vel.into(),
-                            })
+                // Apply gate chord modifiers to single note as well (Duplicate/Select/Solo/Mute etc.)
+                let gated_single: Vec<u8> = {
+                    let mut g = vec![note];
+                    if duplicate_held && !select_held {
+                        let root = g[0] as i32; let fifth = ((root + 7).clamp(0,127)) as u8; g = vec![root as u8, fifth];
+                    } else if select_held {
+                        let root = g[0] as i32; let fifth = ((root + 7).clamp(0,127)) as u8; let oct = ((root + 12).clamp(0,127)) as u8; g = vec![root as u8, fifth, oct];
+                    } else {
+                        // For single, Scene/Pattern could promote to triad/tetrad
+                        if scene_held && g.len() == 1 {
+                            // make triad -> then Scene will promote to tetrad? For single, Scene = triad->tetrad means single->triad? We'll make triad
+                            let scale_name = settings.scale_names.get(current_page).map(|s| s.as_str());
+                            g = triad_for_pad(notes, idx as usize, transpose_offset, scale_name, &settings.chord_types);
+                            if g.len() == 3 {
+                                let mut tmp = settings.chord_types.clone(); if let Some(name) = scale_name { tmp.insert(name.to_string(), "tetrad".to_string()); }
+                                g = triad_for_pad(notes, idx as usize, transpose_offset, scale_name, &tmp);
+                            }
                         }
-                        _ => None,
-                    },
-                    #[allow(unreachable_patterns)]
-                    _ => None,
+                        if pattern_held && g.len() == 4 { g.truncate(3); }
+                    }
+                    // Solo/Mute additive
+                    if solo_held { let root = g[0] as i32; let n = ((root + 14).clamp(0,127)) as u8; if !g.contains(&n) { g.push(n); } }
+                    if mute_held { let root = g[0] as i32; let n = ((root + 17).clamp(0,127)) as u8; if !g.contains(&n) { g.push(n); } }
+                    // Event/Variation for single not applicable (no third)
+                    g.sort_unstable(); g.dedup();
+                    g
                 };
-
-                if let Some(evt) = event_opt {
-                    send_midi(port, channel, evt);
+                if gated_single.len() == 1 {
+                    let note = gated_single[0];
+                    let event_opt: Option<MidiMessage> = match pad_evt {
+                        PadEventType::NoteOn | PadEventType::PressOn => Some(MidiMessage::NoteOn { key: note.into(), vel: scaled_vel.into() }),
+                        PadEventType::NoteOff | PadEventType::PressOff => Some(MidiMessage::NoteOff { key: note.into(), vel: scaled_vel.into() }),
+                        PadEventType::Aftertouch => match settings.pad_aftertouch.as_str() {
+                            "poly" => Some(MidiMessage::Aftertouch { key: note.into(), vel: scaled_vel.into() }),
+                            "channel" => Some(MidiMessage::ChannelAftertouch { vel: scaled_vel.into() }),
+                            "cc" => Some(MidiMessage::Controller { controller: 74u8.into(), value: scaled_vel.into() }),
+                            _ => None,
+                        },
+                        #[allow(unreachable_patterns)] _ => None,
+                    };
+                    if let Some(evt) = event_opt { send_midi(port, channel, evt); }
+                } else {
+                    match pad_evt {
+                        PadEventType::NoteOn | PadEventType::PressOn => { for n in gated_single { send_midi(port, channel, MidiMessage::NoteOn { key: n.into(), vel: scaled_vel.into() }); } },
+                        PadEventType::NoteOff | PadEventType::PressOff => { for n in gated_single { send_midi(port, channel, MidiMessage::NoteOff { key: n.into(), vel: scaled_vel.into() }); } },
+                        PadEventType::Aftertouch => {
+                            match settings.pad_aftertouch.as_str() {
+                                "poly" => { for n in gated_single { send_midi(port, channel, MidiMessage::Aftertouch { key: n.into(), vel: scaled_vel.into() }); } },
+                                "channel" => send_midi(port, channel, MidiMessage::ChannelAftertouch { vel: scaled_vel.into() }),
+                                "cc" => send_midi(port, channel, MidiMessage::Controller { controller: 74u8.into(), value: scaled_vel.into() }),
+                                _ => {}
+                            }
+                        },
+                        #[allow(unreachable_patterns)] _ => {}
+                    }
                 }
             }
         }
