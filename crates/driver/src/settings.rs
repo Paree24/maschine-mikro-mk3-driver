@@ -20,6 +20,9 @@ fn default_pad_page_button() -> String {
 fn default_auto_page_button() -> String {
     "Auto".to_string()
 }
+fn default_lock_page_button() -> String {
+    "Lock".to_string()
+}
 fn default_encoder_cc() -> u8 {
     14
 }
@@ -190,6 +193,10 @@ pub(crate) struct Settings {
     #[serde(default = "default_auto_page_button")]
     pub auto_page_button: String,
 
+    // Third page button for pages 33-48 (Lock+Pad). Empty to disable.
+    #[serde(default = "default_lock_page_button")]
+    pub lock_page_button: String,
+
     // When true, holding pad_page_button + tapping a pad (0-7) directly selects page
     // like NI Controller Editor (Group + Pad). When false, pressing pad_page_button cycles.
     #[serde(default = "default_hold_select")]
@@ -229,6 +236,9 @@ pub(crate) struct Settings {
 
     #[serde(default)]
     pub chord_types: HashMap<String, String>,
+
+    #[serde(default)]
+    pub daw_mackie: bool,
 }
 
 fn default_hold_select() -> bool {
@@ -246,6 +256,7 @@ impl Default for Settings {
             pad_channel: default_pad_channel(),
             pad_page_button: default_pad_page_button(),
             auto_page_button: default_auto_page_button(),
+            lock_page_button: default_lock_page_button(),
             pad_page_hold_select: true,
             pad_aftertouch: default_aftertouch(),
             pad_colors: None,
@@ -258,6 +269,7 @@ impl Default for Settings {
             transpose: TransposeConfig::default(),
             scale_names: default_scale_names(),
             chord_types: HashMap::new(),
+            daw_mackie: false,
         }
     }
 }
@@ -361,6 +373,15 @@ impl Settings {
         }
     }
 
+    pub(crate) fn lock_page_button_parsed(&self) -> Option<String> {
+        let s = self.lock_page_button.trim();
+        if s.is_empty() {
+            None
+        } else {
+            Some(s.to_string())
+        }
+    }
+
     pub(crate) fn validate(&self) -> Result<(), String> {
         // Check legacy notemaps if present and no pages
         if self.pad_pages.is_none() {
@@ -379,8 +400,8 @@ impl Settings {
             if pages.is_empty() {
                 return Err("pad_pages must contain at least one page".to_string());
             }
-            if pages.len() > 32 {
-                return Err("pad_pages supports at most 32 pages".to_string());
+            if pages.len() > 48 {
+                return Err("pad_pages supports at most 48 pages".to_string());
             }
             for (idx, page) in pages.iter().enumerate() {
                 if page.len() != 16 {
@@ -490,6 +511,9 @@ impl Settings {
 
         if !self.auto_page_button.trim().is_empty() && Self::parse_button_name(self.auto_page_button.trim()).is_none() {
             return Err(format!("auto_page_button = \"{}\" is not a valid button name", self.auto_page_button));
+        }
+        if !self.lock_page_button.trim().is_empty() && Self::parse_button_name(self.lock_page_button.trim()).is_none() {
+            return Err(format!("lock_page_button = \"{}\" is not a valid button name", self.lock_page_button));
         }
 
         Ok(())

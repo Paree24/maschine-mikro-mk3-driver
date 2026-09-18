@@ -123,6 +123,15 @@ fn is_auto_page_button(settings: &Settings, button: Buttons) -> bool {
     }
 }
 
+fn is_lock_page_button(settings: &Settings, button: Buttons) -> bool {
+    if let Some(name) = settings.lock_page_button_parsed() {
+        let btn_name = button_debug_name(button);
+        btn_name.eq_ignore_ascii_case(&name)
+    } else {
+        false
+    }
+}
+
 // Build chord for pad: configurable via [chord_types] in config (power/triad/tetrad)
 // pad_notes is driver idx order permuted; convert to phys sequential first
 fn triad_for_pad(pad_notes: &[u8], idx: usize, transpose: i32, scale_name: Option<&str>, chord_types: &std::collections::HashMap<String, String>) -> Vec<u8> {
@@ -484,6 +493,8 @@ fn main_loop(
     let mut page_selected_via_pad = false;
     let mut auto_page_holding = false;
     let mut auto_page_selected_via_pad = false;
+    let mut lock_page_holding = false;
+    let mut lock_page_selected_via_pad = false;
     let mut chords_active = false;
     let mut button_prev = [false; 64];
     let norm_map = normalized_button_map(settings);
@@ -507,10 +518,13 @@ fn main_loop(
         }
         let _ = lights.write(device);
     }
-    // Default: dim by default, normal when pressed (gate)
+    // Default: dim by default with per-page color (one color per page, configurable via pad_page_colors)
     {
+        let col = if let Some(pc) = &settings.pad_page_colors {
+            if !pc.is_empty() { parse_pad_color(&pc[current_page % pc.len()]).unwrap_or(PadColors::Blue) } else { PadColors::Blue }
+        } else { PadColors::Blue };
         for p in 0..16 {
-            lights.set_pad(p, PadColors::Blue, Brightness::Dim);
+            lights.set_pad(p, col, Brightness::Dim);
         }
         for bid in 0..39 {
             if let Some(btn) = num::FromPrimitive::from_usize(bid) {
@@ -536,8 +550,11 @@ fn main_loop(
             if selector_active {
                 if let Some(since) = selector_since {
                     if since.elapsed() > Duration::from_millis(700) {
+                        let col = if let Some(pc) = &settings.pad_page_colors {
+                            if !pc.is_empty() { parse_pad_color(&pc[current_page % pc.len()]).unwrap_or(PadColors::Blue) } else { PadColors::Blue }
+                        } else { PadColors::Blue };
                         for p in 0..16 {
-                            lights.set_pad(p, PadColors::Blue, Brightness::Dim);
+                            lights.set_pad(p, col, Brightness::Dim);
                         }
                         lights.write(device)?;
                         selector_active = false;
@@ -551,8 +568,11 @@ fn main_loop(
         if selector_active {
             if let Some(since) = selector_since {
                 if since.elapsed() > Duration::from_millis(700) {
+                    let col = if let Some(pc) = &settings.pad_page_colors {
+                        if !pc.is_empty() { parse_pad_color(&pc[current_page % pc.len()]).unwrap_or(PadColors::Blue) } else { PadColors::Blue }
+                    } else { PadColors::Blue };
                     for p in 0..16 {
-                        lights.set_pad(p, PadColors::Blue, Brightness::Dim);
+                        lights.set_pad(p, col, Brightness::Dim);
                     }
                     lights.write(device)?;
                     selector_active = false;
@@ -660,7 +680,6 @@ fn main_loop(
                                 } else {
                                     auto_page_holding = false;
                                     if !auto_page_selected_via_pad {
-                                        // cycle within 16.. total_pages-1
                                         let base = 16;
                                         let count = total_pages - base;
                                         if count > 0 {
@@ -686,6 +705,46 @@ fn main_loop(
                                     current_page = base + next;
                                     page_changed = true;
                                     println!("Pad page (Auto) -> {}/{}", current_page + 1, total_pages);
+                                }
+                            }
+                        } else if is_lock_page_button(settings, button) && total_pages > 32 {
+                            // Lock+Pad for pages 33-48 (index 32..47)
+                            if settings.pad_page_hold_select {
+                                if status {
+                                    lock_page_holding = true;
+                                    lock_page_selected_via_pad = false;
+                                    if lights.button_has_light(button) {
+                                        lights.set_button(button, Brightness::Bright);
+                                        changed_lights = true;
+                                    }
+                                } else {
+                                    lock_page_holding = false;
+                                    if !lock_page_selected_via_pad {
+                                        let base = 32;
+                                        let count = total_pages - base;
+                                        if count > 0 {
+                                            let rel = if current_page >= base { current_page - base } else { 0 };
+                                            let next = (rel + 1) % count;
+                                            current_page = base + next;
+                                            page_changed = true;
+                                            println!("Pad page cycled (Lock) -> {}/{}", current_page + 1, total_pages);
+                                        }
+                                    }
+                                    lock_page_selected_via_pad = false;
+                                    if lights.button_has_light(button) {
+                                        lights.set_button(button, Brightness::Dim);
+                                        changed_lights = true;
+                                    }
+                                }
+                            } else if status {
+                                let base = 32;
+                                let count = total_pages - base;
+                                if count > 0 {
+                                    let rel = if current_page >= base { current_page - base } else { 0 };
+                                    let next = (rel + 1) % count;
+                                    current_page = base + next;
+                                    page_changed = true;
+                                    println!("Pad page (Lock) -> {}/{}", current_page + 1, total_pages);
                                 }
                             }
                         } else if is_pad_page_button(settings, button) && total_pages > 1 {
@@ -727,13 +786,36 @@ fn main_loop(
                                 let _ = br;
                             }
                         } else {
-                            // Normal button MIDI - keep lit dimly when not pressed
-                            handle_button_midi(port, settings, &norm_map, button, status);
-                            if lights.button_has_light(button) {
-                                let expected = if status { Brightness::Normal } else { Brightness::Dim };
-                                if lights.get_button(button) != expected {
-                                    lights.set_button(button, expected);
-                                    changed_lights = true;
+                            // DAW Mackie Control for Play/Rec/Stop if enabled
+                            if settings.daw_mackie && matches!(button, Buttons::Play | Buttons::Rec | Buttons::Stop) {
+                                let (note, ch) = match button {
+                                    Buttons::Play => (94u8, 0u8),
+                                    Buttons::Stop => (93u8, 0u8),
+                                    Buttons::Rec => (95u8, 0u8),
+                                    _ => (0,0),
+                                };
+                                if status {
+                                    send_midi(port, ch.into(), MidiMessage::NoteOn { key: note.into(), vel: 127.into() });
+                                    println!("Mackie {:?} -> Note {} ch {}", button, note, ch);
+                                } else {
+                                    send_midi(port, ch.into(), MidiMessage::NoteOff { key: note.into(), vel: 0.into() });
+                                }
+                                if lights.button_has_light(button) {
+                                    let expected = if status { Brightness::Bright } else { Brightness::Dim };
+                                    if lights.get_button(button) != expected {
+                                        lights.set_button(button, expected);
+                                        changed_lights = true;
+                                    }
+                                }
+                            } else {
+                                // Normal button MIDI - keep lit dimly when not pressed
+                                handle_button_midi(port, settings, &norm_map, button, status);
+                                if lights.button_has_light(button) {
+                                    let expected = if status { Brightness::Normal } else { Brightness::Dim };
+                                    if lights.get_button(button) != expected {
+                                        lights.set_button(button, expected);
+                                        changed_lights = true;
+                                    }
                                 }
                             }
                         }
@@ -822,6 +904,26 @@ fn main_loop(
                                     println!("Pad page selected via Auto+pad {} -> {}/{}", idx, current_page + 1, total_pages);
                                 } else {
                                     auto_page_selected_via_pad = true;
+                                }
+                            }
+                            continue;
+                        }
+                        _ => continue,
+                    }
+                }
+                // Lock+Pad for pages 33-48 (index 32..47)
+                if lock_page_holding && settings.pad_page_hold_select && total_pages > 32 {
+                    match pad_evt {
+                        PadEventType::NoteOn | PadEventType::PressOn => {
+                            let page_idx = 32 + idx as usize;
+                            if page_idx < total_pages {
+                                if page_idx != current_page {
+                                    current_page = page_idx;
+                                    page_changed = true;
+                                    lock_page_selected_via_pad = true;
+                                    println!("Pad page selected via Lock+pad {} -> {}/{}", idx, current_page + 1, total_pages);
+                                } else {
+                                    lock_page_selected_via_pad = true;
                                 }
                             }
                             continue;

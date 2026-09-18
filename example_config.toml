@@ -73,15 +73,51 @@ pad_pages = [
   [77, 79, 82, 84, 67, 70, 72, 73, 58, 60, 61, 65, 48, 49, 53, 55],
   # Iwato Up
   [77, 78, 82, 84, 66, 70, 72, 73, 58, 60, 61, 65, 48, 49, 53, 54],
+  # Chromatic Lock (33-48, Lock+Pad)
+  [72, 73, 74, 75, 68, 69, 70, 71, 64, 65, 66, 67, 60, 61, 62, 63],
+  # Major Lock (33-48, Lock+Pad)
+  [81, 83, 84, 86, 74, 76, 77, 79, 67, 69, 71, 72, 60, 62, 64, 65],
+  # Minor Lock (33-48, Lock+Pad)
+  [80, 82, 84, 86, 74, 75, 77, 79, 67, 68, 70, 72, 60, 62, 63, 65],
+  # Dorian Lock (33-48, Lock+Pad)
+  [81, 82, 84, 86, 74, 75, 77, 79, 67, 69, 70, 72, 60, 62, 63, 65],
+  # Mixolydian Lock (33-48, Lock+Pad)
+  [81, 82, 84, 86, 74, 76, 77, 79, 67, 69, 70, 72, 60, 62, 64, 65],
+  # Phrygian Lock (33-48, Lock+Pad)
+  [80, 82, 84, 85, 73, 75, 77, 79, 67, 68, 70, 72, 60, 61, 63, 65],
+  # Lydian Lock (33-48, Lock+Pad)
+  [81, 83, 84, 86, 74, 76, 78, 79, 67, 69, 71, 72, 60, 62, 64, 66],
+  # Harmonic Minor Lock (33-48, Lock+Pad)
+  [80, 83, 84, 86, 74, 75, 77, 79, 67, 68, 71, 72, 60, 62, 63, 65],
+  # Melodic Minor Lock (33-48, Lock+Pad)
+  [81, 83, 84, 86, 74, 75, 77, 79, 67, 69, 71, 72, 60, 62, 63, 65],
+  # Double Harmonic Lock (33-48, Lock+Pad)
+  [80, 83, 84, 85, 73, 76, 77, 79, 67, 68, 71, 72, 60, 61, 64, 65],
+  # Minor Pentatonic Lock (33-48, Lock+Pad)
+  [89, 91, 94, 96, 79, 82, 84, 87, 70, 72, 75, 77, 60, 63, 65, 67],
+  # Minor Blues Lock (33-48, Lock+Pad)
+  [84, 87, 89, 90, 77, 78, 79, 82, 67, 70, 72, 75, 60, 63, 65, 66],
+  # Hungarian Minor Lock (33-48, Lock+Pad)
+  [80, 83, 84, 86, 74, 75, 78, 79, 67, 68, 71, 72, 60, 62, 63, 66],
+  # Hirajoshi Lock (33-48, Lock+Pad)
+  [87, 91, 92, 96, 79, 80, 84, 86, 68, 72, 74, 75, 60, 62, 63, 67],
+  # In Sen Lock (33-48, Lock+Pad)
+  [89, 91, 94, 96, 79, 82, 84, 85, 70, 72, 73, 77, 60, 61, 65, 67],
+  # Iwato Lock (33-48, Lock+Pad)
+  [89, 90, 94, 96, 78, 82, 84, 85, 70, 72, 73, 77, 60, 61, 65, 66],
 ]
+
+pad_page_colors = ['Red', 'Orange', 'LightOrange', 'WarmYellow', 'Yellow', 'Lime', 'Green', 'Mint', 'Cyan', 'Turquoise', 'Blue', 'Plum', 'Violet', 'Purple', 'Magenta', 'Fuchsia', 'White', 'Red', 'Orange', 'LightOrange', 'WarmYellow', 'Yellow', 'Lime', 'Green', 'Mint', 'Cyan', 'Turquoise', 'Blue', 'Plum', 'Violet', 'Purple', 'Magenta', 'Fuchsia', 'White', 'Red', 'Orange', 'LightOrange', 'WarmYellow', 'Yellow', 'Lime', 'Green', 'Mint', 'Cyan', 'Turquoise', 'Blue', 'Plum', 'Violet', 'Purple']
 
 pad_page_button = "Group"
 auto_page_button = "Auto"
+lock_page_button = "Lock"
 pad_page_hold_select = true
 pad_aftertouch = "poly"
+daw_mackie = true  # Play/Rec/Stop as Mackie MCU Note 94/95/93
 
 # Scale names for 32 pages (must match pad_pages order; used for chord config)
-scale_names = ["Chromatic","Major","Minor","Dorian","Mixolydian","Phrygian","Lydian","Harmonic Minor","Melodic Minor","Double Harmonic","Minor Pentatonic","Minor Blues","Hungarian Minor","Hirajoshi","In Sen","Iwato","Chromatic Up","Major Up","Minor Up","Dorian Up","Mixolydian Up","Phrygian Up","Lydian Up","Harmonic Minor Up","Melodic Minor Up","Double Harmonic Up","Minor Pentatonic Up","Minor Blues Up","Hungarian Minor Up","Hirajoshi Up","In Sen Up","Iwato Up"]
+scale_names = ['Chromatic', 'Major', 'Minor', 'Dorian', 'Mixolydian', 'Phrygian', 'Lydian', 'Harmonic Minor', 'Melodic Minor', 'Double Harmonic', 'Minor Pentatonic', 'Minor Blues', 'Hungarian Minor', 'Hirajoshi', 'In Sen', 'Iwato', 'Chromatic Up', 'Major Up', 'Minor Up', 'Dorian Up', 'Mixolydian Up', 'Phrygian Up', 'Lydian Up', 'Harmonic Minor Up', 'Melodic Minor Up', 'Double Harmonic Up', 'Minor Pentatonic Up', 'Minor Blues Up', 'Hungarian Minor Up', 'Hirajoshi Up', 'In Sen Up', 'Iwato Up', 'Chromatic Lock', 'Major Lock', 'Minor Lock', 'Dorian Lock', 'Mixolydian Lock', 'Phrygian Lock', 'Lydian Lock', 'Harmonic Minor Lock', 'Melodic Minor Lock', 'Double Harmonic Lock', 'Minor Pentatonic Lock', 'Minor Blues Lock', 'Hungarian Minor Lock', 'Hirajoshi Lock', 'In Sen Lock', 'Iwato Lock']
 
 # Chord voicings per scale: "power" (root+fifth), "triad" (1-3-5), "tetrad" (1-3-5-7)
 # Default: 7-tone -> triad, non-7 (chromatic 12, pentatonic 5, blues 6) -> power (fixed 7 semitones, straightforward)
