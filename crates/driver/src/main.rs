@@ -835,16 +835,16 @@ fn main_loop(
                     }
                 }
 
-                // Normal pad handling - keep pads lit dimly when not pressed (user request: all lit by default)
+                // Normal pad handling - keep pads lit normally when not pressed (all lit by default)
                 let (_, prev_b) = lights.get_pad(idx as usize);
                 let b = match pad_evt {
                     PadEventType::NoteOn | PadEventType::PressOn => Brightness::Bright,
-                    PadEventType::NoteOff | PadEventType::PressOff => Brightness::Dim,
+                    PadEventType::NoteOff | PadEventType::PressOff => Brightness::Normal,
                     PadEventType::Aftertouch => {
                         if val > 0 {
                             Brightness::Normal
                         } else {
-                            Brightness::Dim
+                            Brightness::Normal
                         }
                     }
                     #[allow(unreachable_patterns)]
@@ -957,13 +957,13 @@ fn main_loop(
         }
 
         if page_changed {
-            // Update lights for paging: highlight pads that correspond to pages
+            // Update lights for paging: highlight current page Bright, others Normal (stay lit)
             for p in 0..16 {
                 let br = if p < total_pages {
                     if p == current_page {
                         Brightness::Bright
                     } else {
-                        Brightness::Dim
+                        Brightness::Normal
                     }
                 } else {
                     Brightness::Off
