@@ -26,28 +26,62 @@ pad_channel = 9
 # This replicates Windows Controller Editor behavior where you can change
 # "pages" to get different notes.
 # - With `pad_page_button = "Group"` and `pad_page_hold_select = true` (default),
-#   hold Group and tap a pad 0..7 to select pages 1..8 (like Group + Pad on Windows).
+#   hold Group and tap a pad 0..15 to select pages 1..16 (like Group + Pad on Windows).
 # - Tap Group alone (without pad) to cycle to next page.
 # - Set `pad_page_button = ""` to disable paging and keep a static single page.
-# Up to 16 pages supported. Display shows current page on the tiny screen.
+# Up to 16 pages supported (matches Windows, 8 was old default). Display shows current page.
+#
+# CHROMATIC LAYOUT:
+#   Each chromatic page below uses sequential notes B .. B+15 where B = base note.
+#   Pad idx 0 = lowest note, idx 15 = highest. Physical bottom-left pad is idx 0
+#   on this driver (pads light sequentially bottom→top in self-test). If your
+#   unit appears vertically flipped (top-left lowest), replace a page's list
+#   with the row-flipped variant:
+#     [ B+12, B+13, B+14, B+15,
+#       B+8,  B+9,  B+10, B+11,
+#       B+4,  B+5,  B+6,  B+7,
+#       B+0,  B+1,  B+2,  B+3 ]
+#   See commented example below.
 pad_pages = [
-  # Page 1: General drums (GM-ish) – default page on startup
+  # Page 1: General drums (GM-ish) – default on startup
   [36, 38, 42, 46, 43, 47, 49, 51, 37, 39, 44, 45, 48, 50, 52, 53],
   # Page 2: Alternative drum kit
   [36, 38, 42, 46, 41, 43, 45, 49, 35, 37, 39, 40, 44, 48, 52, 55],
-  # Page 3: Chromatic C2-C3 for melodic playing (like Keyboard mode)
+  # Page 3: Chromatic C1  (24-39)  – low sub
+  [24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39],
+  # Page 4: Chromatic C2  (36-51)  – classic C2
+  [36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51],
+  # Page 5: Chromatic C3  (48-63)
   [48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63],
-  # Page 4: Chromatic C3-C4
+  # Page 6: Chromatic C4  (60-75)
   [60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75],
-  # Page 5: Bass / 808 style (low notes)
-  [36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51],
-  # Page 6: User custom – edit to taste
-  [49, 27, 31, 57, 48, 47, 43, 59, 36, 38, 46, 51, 36, 38, 42, 44],
-  # Page 7: Chromatic C4-C5
+  # Page 7: Chromatic C5  (72-87)
   [72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87],
-  # Page 8: chromatic C1-C2 (sub)
-  [36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51],
+  # Page 8: Chromatic C6  (84-99)
+  [84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99],
+  # Page 9: Full range block 0-15 (C-1)
+  [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+  # Page 10: Full range block 16-31
+  [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
+  # Page 11: Full range block 32-47
+  [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47],
+  # Page 12: Full range block 64-79 (E4)
+  [64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79],
+  # Page 13: Full range block 80-95
+  [80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95],
+  # Page 14: Extra chromatic 12-27 (fills gap)
+  [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27],
+  # Page 15: Full range block 96-111
+  [96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111],
+  # Page 16: Full range block 112-127 (top)
+  [112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127],
 ]
+
+# For Windows parity you now have exactly 16 pages (2 drums + 14 chromatic).
+# Trim or reorder – first 8 are most useful for drums/melodic, rest cover full range.
+
+# Row-flipped example for one page (use if top-left is lowest note physically):
+# Replace e.g. [48..63] with [60,61,62,63, 56,57,58,59, 52,53,54,55, 48,49,50,51]
 
 # Which button controls paging. Options: any button name listed in [buttons] below,
 # e.g. "Group", "PadMode", "Keyboard", "Chords", "Scene", "" to disable.
@@ -72,8 +106,8 @@ pad_aftertouch = "poly"
 # pad_colors = ["Blue","Blue","Yellow","Yellow","Green","Green","Red","Red","Cyan","Cyan","Magenta","Magenta","White","White","Orange","Orange"]
 
 # Optional per-page colors (one color per page, up to 16). Used to tint pad LEDs
-# when showing page selector. Uncomment to enable.
-# pad_page_colors = ["Blue", "Green", "Yellow", "Orange", "Purple", "Magenta", "Cyan", "White"]
+# when showing page selector (now auto-clears after 700ms). Uncomment to enable.
+# pad_page_colors = ["Blue", "Green", "Yellow", "Orange", "Purple", "Magenta", "Cyan", "White", "Lime", "Mint", "Turquoise", "Plum", "Violet", "Fuchsia", "Red", "White"]
 
 # =============================================================================
 # Encoder (pushable knob)

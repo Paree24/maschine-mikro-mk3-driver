@@ -14,6 +14,7 @@ use midir::os::unix::VirtualOutput;
 use midir::{MidiOutput, MidiOutputConnection};
 use midly::{MidiMessage, live::LiveEvent};
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -335,6 +336,10 @@ fn main_loop(
     let mut button_prev = [false; 64];
     let norm_map = normalized_button_map(settings);
 
+    // For auto-clearing page selector LEDs
+    let mut selector_active = false;
+    let mut selector_since: Option<Instant> = None;
+
     // Prepare pad color helpers
     let default_pad_color = PadColors::Blue;
 
@@ -342,7 +347,36 @@ fn main_loop(
     loop {
         let size = device.read_timeout(&mut buf, 10)?;
         if size < 1 {
+            // still need to handle selector timeout even without HID data
+            if selector_active {
+                if let Some(since) = selector_since {
+                    if since.elapsed() > Duration::from_millis(700) {
+                        // clear selector: all pads off
+                        for p in 0..16 {
+                            lights.set_pad(p, PadColors::Blue, Brightness::Off);
+                        }
+                        lights.write(device)?;
+                        selector_active = false;
+                        selector_since = None;
+                    }
+                }
+            }
             continue;
+        }
+
+        // selector timeout check also when we have data
+        if selector_active {
+            if let Some(since) = selector_since {
+                if since.elapsed() > Duration::from_millis(700) {
+                    for p in 0..16 {
+                        lights.set_pad(p, PadColors::Blue, Brightness::Off);
+                    }
+                    // will be written via changed_lights below
+                    lights.write(device)?;
+                    selector_active = false;
+                    selector_since = None;
+                }
+            }
         }
 
         let mut changed_lights = false;
@@ -581,8 +615,7 @@ fn main_loop(
         }
 
         if page_changed {
-            // Update lights for paging: optionally light Group button and show page pads
-            // Highlight pads that correspond to pages
+            // Update lights for paging: highlight pads that correspond to pages
             for p in 0..16 {
                 let br = if p < total_pages {
                     if p == current_page {
@@ -602,28 +635,18 @@ fn main_loop(
                 } else {
                     PadColors::Blue
                 };
-                // Only overwrite pad LEDs briefly? We show page selector for a moment
-                // Keep it simple: set pad LEDs to reflect page selection momentarily,
-                // then revert on next pad event. We'll set now.
                 lights.set_pad(p, col, br);
             }
             changed_lights = true;
+            selector_active = true;
+            selector_since = Some(Instant::now());
             if let Err(e) = update_screen(screen, device, current_page, total_pages) {
                 eprintln!("screen update failed: {:?}", e);
-            } else {
-                // screen already written, don't need lights write twice
             }
-            // Also update Group button light if it's paging button and hold mode off
-            // Keep page button lit proportionally
         }
 
         if changed_lights {
             lights.write(device)?;
-        }
-        // If page changed we already updated screen, but lights write also needed
-        if page_changed {
-            // Give user visual feedback for ~300ms then restore pads? For now keep page LEDs
-            // Could schedule revert, but keep as is for simplicity.
         }
     }
 }
