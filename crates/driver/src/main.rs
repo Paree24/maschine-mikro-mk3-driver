@@ -253,24 +253,16 @@ fn update_screen(screen: &mut Screen, device: &HidDevice, page: usize, total: us
     update_screen_with_transpose(screen, device, page, total, 0)
 }
 
-fn update_screen_with_transpose(screen: &mut Screen, device: &HidDevice, page: usize, total: usize, transpose: i32) -> HidResult<()> {
-    update_screen_arp(screen, device, page, total, transpose, false, "", 1)
+fn update_screen_with_transpose(screen: &mut Screen, device: &HidDevice, page: usize, total: usize, _transpose: i32) -> HidResult<()> {
+    // Transpose display disabled per user request (was small T±n at top)
+    update_screen_arp(screen, device, page, total, 0, false, "", 1)
 }
 
 fn update_screen_arp(screen: &mut Screen, device: &HidDevice, page: usize, total: usize, transpose: i32, arp_on: bool, arp_rate: &str, arp_oct: usize) -> HidResult<()> {
     screen.reset();
     if arp_on {
-        // Show arp rate and mode when arp is on (no page number)
-        // e.g. "1/16" and octaves "x2"
-        let rate = arp_rate;
-        // Simple: write rate string via digits and symbols
-        // For now, show rate as large digits: use first char and second char
-        // Map rate like "1/16" -> show "16" large, with small "1/" prefix
-        // Simplified: just show rate index as digits
-        // We'll write rate string manually: e.g. "1/16" -> 1, /, 1, 6
-        // For brevity, show arp_rate_name at center
-        let mut x = 20;
-        for ch in rate.chars() {
+        let mut x = 30;
+        for ch in arp_rate.chars() {
             if ch == '/' {
                 for i in 0..12 { screen.set(12 + i, x, true); }
                 x += 10;
@@ -279,7 +271,6 @@ fn update_screen_arp(screen: &mut Screen, device: &HidDevice, page: usize, total
                 screen.set(19, x, true);
                 x += 6;
             } else if ch == 'T' {
-                // T for triplet
                 for i in 0..8 { screen.set(4 + i, x, true); screen.set(4 + i, x+4, true); }
                 for i in 0..4 { screen.set(4, x+i, true); screen.set(8, x+i, true); }
                 x += 10;
@@ -288,8 +279,8 @@ fn update_screen_arp(screen: &mut Screen, device: &HidDevice, page: usize, total
                 x += 18;
             }
         }
-        // Show octaves at top-right
         Font::write_digit(screen, 0, 110, arp_oct, 1);
+        let _ = transpose;
         screen.write(device)
     } else {
         // Show "P:x/y" with large digits
