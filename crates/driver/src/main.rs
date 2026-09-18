@@ -1063,8 +1063,7 @@ fn main_loop(
                                             let base = 48;
                                             let count = (16).min(total_pages - base);
                                             if count > 0 {
-                                                let rel = if current_page >= base { current_page - base } else { 0 };
-                                                let next = (rel + 1) % count;
+                                                let next = if current_page < base || current_page >= base + count { 0 } else { (current_page - base + 1) % count };
                                                 current_page = base + next;
                                                 page_changed = true;
                                                 println!("Pad page cycled (PadMode) -> {}/{} (49th page = 49)", current_page + 1, total_pages);
@@ -1081,8 +1080,7 @@ fn main_loop(
                                     let base = 48;
                                     let count = (16).min(total_pages - base);
                                     if count > 0 {
-                                        let rel = if current_page >= base { current_page - base } else { 0 };
-                                        let next = (rel + 1) % count;
+                                        let next = if current_page < base || current_page >= base + count { 0 } else { (current_page - base + 1) % count };
                                         current_page = base + next;
                                         page_changed = true;
                                         println!("Pad page (PadMode) -> {}/{} (49th page = 49)", current_page + 1, total_pages);
