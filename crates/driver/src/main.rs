@@ -569,6 +569,7 @@ fn main_loop(
     let mut lock_page_holding = false;
     let mut lock_page_selected_via_pad = false;
     let mut chords_active = false;
+    let mut tetrad_active = false;
     let mut button_prev = [false; 64];
     let norm_map = normalized_button_map(settings);
     let mut transpose_offset: i32 = 0;
@@ -584,6 +585,7 @@ fn main_loop(
     let mut arp_dir: i32 = 1;
     let mut arp_last_tick = Instant::now();
     let mut arp_current_notes: Option<Vec<u8>> = None;
+    let mut fixed_vel_active = false;
 
     // For auto-clearing page selector LEDs
     let mut selector_active = false;
@@ -916,6 +918,15 @@ fn main_loop(
                                 lights.set_button(Buttons::Sampling, Brightness::Dim);
                                 changed_lights = true;
                             }
+                        } else if status && button == Buttons::FixedVol {
+                            fixed_vel_active = !fixed_vel_active;
+                            println!("FixedVel -> {}", if fixed_vel_active { "127" } else { "vel" });
+                            if lights.button_has_light(Buttons::FixedVol) {
+                                lights.set_button(Buttons::FixedVol, if fixed_vel_active { Brightness::Bright } else { Brightness::Dim });
+                            }
+                            changed_lights = true;
+                        } else if !status && button == Buttons::FixedVol {
+                            // keep LED
                         } else if status && button == Buttons::Chords {
                             chords_active = !chords_active;
                             println!("Chords mode -> {}", if chords_active { "triads" } else { "single" });
@@ -1319,11 +1330,8 @@ fn main_loop(
                 if (idx as usize) >= notes.len() {
                     continue;
                 }
-                let mut velocity = (val >> 5) as u8;
-                if val > 0 && velocity == 0 {
-                    velocity = 1;
-                }
-                let scaled_vel = velocity.min(127);
+                let mut velocity = if fixed_vel_active { 127 } else { let mut v = (val >> 5) as u8; if val > 0 && v == 0 { v = 1; } v.min(127) };
+                let scaled_vel = velocity;
                 let channel = settings.pad_midi_channel();
 
                 // Chords mode: configurable via [chord_types] (power/triad/tetrad), default triad for 7, power for others
