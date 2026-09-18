@@ -254,58 +254,101 @@ fn update_screen(screen: &mut Screen, device: &HidDevice, page: usize, total: us
 }
 
 fn update_screen_with_transpose(screen: &mut Screen, device: &HidDevice, page: usize, total: usize, transpose: i32) -> HidResult<()> {
+    update_screen_arp(screen, device, page, total, transpose, false, "", 1)
+}
+
+fn update_screen_arp(screen: &mut Screen, device: &HidDevice, page: usize, total: usize, transpose: i32, arp_on: bool, arp_rate: &str, arp_oct: usize) -> HidResult<()> {
     screen.reset();
-    // Show "P:x/y" with large digits
-    let display_page = page + 1;
-    let display_total = total;
-    if display_page < 10 {
-        Font::write_digit(screen, 8, 20, display_page % 10, 3);
+    if arp_on {
+        // Show arp rate and mode when arp is on (no page number)
+        // e.g. "1/16" and octaves "x2"
+        let rate = arp_rate;
+        // Simple: write rate string via digits and symbols
+        // For now, show rate as large digits: use first char and second char
+        // Map rate like "1/16" -> show "16" large, with small "1/" prefix
+        // Simplified: just show rate index as digits
+        // We'll write rate string manually: e.g. "1/16" -> 1, /, 1, 6
+        // For brevity, show arp_rate_name at center
+        let mut x = 20;
+        for ch in rate.chars() {
+            if ch == '/' {
+                for i in 0..12 { screen.set(12 + i, x, true); }
+                x += 10;
+            } else if ch == '.' {
+                screen.set(18, x, true);
+                screen.set(19, x, true);
+                x += 6;
+            } else if ch == 'T' {
+                // T for triplet
+                for i in 0..8 { screen.set(4 + i, x, true); screen.set(4 + i, x+4, true); }
+                for i in 0..4 { screen.set(4, x+i, true); screen.set(8, x+i, true); }
+                x += 10;
+            } else if let Some(d) = ch.to_digit(10) {
+                Font::write_digit(screen, 8, x, d as usize, 2);
+                x += 18;
+            }
+        }
+        // Show octaves
+        Font::write_digit(screen, 0, 110, arp_oct, 1);
+        // Show transpose small if non-zero
+        if transpose != 0 {
+            let abs_t = transpose.abs() as usize;
+            if abs_t < 10 {
+                Font::write_digit(screen, 0, 90, abs_t % 10, 1);
+            } else {
+                Font::write_digit(screen, 0, 80, (abs_t / 10) % 10, 1);
+                Font::write_digit(screen, 0, 90, abs_t % 10, 1);
+            }
+        }
+        screen.write(device)
     } else {
-        Font::write_digit(screen, 8, 8, display_page / 10, 2);
-        Font::write_digit(screen, 8, 32, display_page % 10, 2);
-    }
-    for i in 0..16 {
-        screen.set(10 + i, 58 + i / 2, true);
-        screen.set(11 + i, 58 + i / 2, true);
-    }
-    if display_total < 10 {
-        Font::write_digit(screen, 8, 72, display_total % 10, 3);
-    } else {
-        Font::write_digit(screen, 8, 72, display_total / 10, 2);
-        Font::write_digit(screen, 8, 92, display_total % 10, 2);
-    }
-    // Show transpose offset at top-right small if non-zero: T+12 etc
-    if transpose != 0 {
-        let sign = if transpose > 0 { 1 } else { 0 };
-        // crude: draw a tiny indicator – use first row pixels to show +/- and value
-        // Just set a few pixels as marker: top edge bar for transpose active
-        for x in 100..126 {
-            screen.set(2, x, true);
-            screen.set(3, x, true);
-        }
-        // Show transpose value as digit(s) at top
-        let abs_t = transpose.abs() as usize;
-        if abs_t < 10 {
-            Font::write_digit(screen, 0, 110, abs_t % 10, 1);
+        // Show "P:x/y" with large digits
+        let display_page = page + 1;
+        let display_total = total;
+        if display_page < 10 {
+            Font::write_digit(screen, 8, 20, display_page % 10, 3);
         } else {
-            Font::write_digit(screen, 0, 100, (abs_t / 10) % 10, 1);
-            Font::write_digit(screen, 0, 110, abs_t % 10, 1);
+            Font::write_digit(screen, 8, 8, display_page / 10, 2);
+            Font::write_digit(screen, 8, 32, display_page % 10, 2);
         }
-        if sign == 1 {
-            // plus sign
-            for i in 0..6 {
-                screen.set(2 + i, 100, true);
-            }
-            for i in 0..6 {
-                screen.set(4, 97 + i, true);
-            }
+        for i in 0..16 {
+            screen.set(10 + i, 58 + i / 2, true);
+            screen.set(11 + i, 58 + i / 2, true);
+        }
+        if display_total < 10 {
+            Font::write_digit(screen, 8, 72, display_total % 10, 3);
         } else {
-            for i in 0..6 {
-                screen.set(4, 97 + i, true);
+            Font::write_digit(screen, 8, 72, display_total / 10, 2);
+            Font::write_digit(screen, 8, 92, display_total % 10, 2);
+        }
+        if transpose != 0 {
+            let sign = if transpose > 0 { 1 } else { 0 };
+            for x in 100..126 {
+                screen.set(2, x, true);
+                screen.set(3, x, true);
+            }
+            let abs_t = transpose.abs() as usize;
+            if abs_t < 10 {
+                Font::write_digit(screen, 0, 110, abs_t % 10, 1);
+            } else {
+                Font::write_digit(screen, 0, 100, (abs_t / 10) % 10, 1);
+                Font::write_digit(screen, 0, 110, abs_t % 10, 1);
+            }
+            if sign == 1 {
+                for i in 0..6 {
+                    screen.set(2 + i, 100, true);
+                }
+                for i in 0..6 {
+                    screen.set(4, 97 + i, true);
+                }
+            } else {
+                for i in 0..6 {
+                    screen.set(4, 97 + i, true);
+                }
             }
         }
+        screen.write(device)
     }
-    screen.write(device)
 }
 
 fn send_midi(port: &mut MidiOutputConnection, channel: u8, msg: MidiMessage) {
@@ -609,12 +652,24 @@ fn main_loop(
 
     let mut buf = [0u8; 64];
     loop {
-        // Arp tick - always synced to clock, even without HID data
+        // Arp tick - always synced to clock, even without HID data - cyclic octaves (C1 G1 C2 G2 for Up)
         if arp_enabled && !held_arp_notes.is_empty() && arp_last_tick.elapsed() >= arp_rate {
             if let Some(prev) = arp_current_notes.take() {
                 for n in &prev { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOff { key: (*n).into(), vel: 0.into() }); }
             }
-            let len = held_arp_notes.len();
+            // Build full sequence with octaves interleaved
+            let mut seq: Vec<Vec<u8>> = Vec::new();
+            for oct in 0..arp_octaves {
+                for base_vec in &held_arp_notes {
+                    for &n in base_vec {
+                        let v = ((n as i32 + (oct as i32 * 12)).clamp(0,127)) as u8;
+                        if !seq.iter().any(|vv: &Vec<u8>| vv[0]==v) {
+                            seq.push(vec![v]);
+                        }
+                    }
+                }
+            }
+            let len = seq.len();
             if len > 0 {
                 let idx = match arp_mode {
                     ArpMode::Up => { let i = arp_pos % len; arp_pos = (arp_pos + 1) % len; i },
@@ -643,7 +698,7 @@ fn main_loop(
                         (h as usize) % len
                     },
                 };
-                let notes = held_arp_notes[idx].clone();
+                let notes = seq[idx].clone();
                 for &n in &notes { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOn { key: n.into(), vel: 100.into() }); }
                 arp_current_notes = Some(notes);
             }
@@ -684,25 +739,32 @@ fn main_loop(
                 }
             }
         }
-        // Arp tick - clock-synced, always
+        // Arp tick - clock-synced, cyclic octaves (C1 G1 C2 G2 for Up)
         if arp_enabled && !held_arp_notes.is_empty() && arp_last_tick.elapsed() >= arp_rate {
-            // NoteOff previous
             if let Some(prev) = arp_current_notes.take() {
                 for n in &prev { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOff { key: (*n).into(), vel: 0.into() }); }
             }
-            // Select next held note(s) based on mode
-            let len = held_arp_notes.len();
+            let mut seq: Vec<Vec<u8>> = Vec::new();
+            for oct in 0..arp_octaves {
+                for base_vec in &held_arp_notes {
+                    for &n in base_vec {
+                        let v = ((n as i32 + (oct as i32 * 12)).clamp(0,127)) as u8;
+                        if !seq.iter().any(|vv: &Vec<u8>| vv[0]==v) {
+                            seq.push(vec![v]);
+                        }
+                    }
+                }
+            }
+            let len = seq.len();
             if len > 0 {
                 let idx = match arp_mode {
                     ArpMode::Up => { let i = arp_pos % len; arp_pos = (arp_pos + 1) % len; i },
                     ArpMode::Down => { let i = (len - 1) - (arp_pos % len); arp_pos = (arp_pos + 1) % len; i },
                     ArpMode::UpDown => {
-                        // 0,1,2,...,len-1,len-2,...,1,0...
                         let cycle = if len == 1 { 1 } else { len * 2 - 2 };
                         let pos = arp_pos % cycle;
                         let i = if pos < len { pos } else { cycle - pos };
                         arp_pos = (arp_pos + 1) % cycle;
-                        // dir not needed for UpDown, handled via cycle
                         i
                     },
                     ArpMode::DownUp => {
@@ -722,11 +784,9 @@ fn main_loop(
                         (h as usize) % len
                     },
                 };
-                let notes = held_arp_notes[idx].clone();
+                let notes = seq[idx].clone();
                 for &n in &notes { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOn { key: n.into(), vel: 100.into() }); }
                 arp_current_notes = Some(notes);
-                // Flash pad for current arp note
-                // Find pad that corresponds to this note? For now flash all held pads dimly
             }
             arp_last_tick = Instant::now();
         }
@@ -792,6 +852,11 @@ fn main_loop(
                                 arp_dir = 1;
                             }
                             changed_lights = true;
+                            if arp_enabled {
+                                let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
+                            } else {
+                                let _ = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset);
+                            }
                         } else if !status && button == Buttons::NoteRepeat {
                         } else if status && button == Buttons::Notes {
                             arp_mode = arp_mode.next();
@@ -800,7 +865,11 @@ fn main_loop(
                                 lights.set_button(Buttons::Notes, Brightness::Bright);
                             }
                             changed_lights = true;
-                            let _ = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset);
+                            if arp_enabled {
+                                let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
+                            } else {
+                                let _ = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset);
+                            }
                         } else if !status && button == Buttons::Notes {
                             if lights.button_has_light(Buttons::Notes) {
                                 lights.set_button(Buttons::Notes, Brightness::Dim);
@@ -824,6 +893,7 @@ fn main_loop(
                                 lights.set_button(Buttons::Sampling, Brightness::Bright);
                                 changed_lights = true;
                             }
+                            let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
                         } else if !status && button == Buttons::Sampling && arp_enabled {
                             if lights.button_has_light(Buttons::Sampling) {
                                 lights.set_button(Buttons::Sampling, Brightness::Dim);
@@ -852,12 +922,18 @@ fn main_loop(
                                 if new_off != transpose_offset {
                                     transpose_offset = new_off;
                                     println!("Transpose {:?} -> {}", action, transpose_offset);
-                                    // update screen to show transpose
-                                    let _ = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset);
-                                    // brief flash of pad colors to indicate transpose? Keep selector active
+                                    if arp_enabled {
+                                        let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
+                                    } else {
+                                        let _ = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset);
+                                    }
                                 } else if matches!(action, TransposeAction::Reset) {
                                     println!("Transpose reset");
-                                    let _ = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset);
+                                    if arp_enabled {
+                                        let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
+                                    } else {
+                                        let _ = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset);
+                                    }
                                 }
                                 if lights.button_has_light(button) {
                                     lights.set_button(button, Brightness::Bright);
@@ -1043,7 +1119,7 @@ fn main_loop(
                         arp_rate = Duration::from_secs_f32(60.0/120.0 * beats);
                         arp_rate_name = next_name.to_string();
                         println!("Arp rate -> {} ({:?}) via Encoder {}", arp_rate_name, arp_rate, delta);
-                        // Flash encoder press LED
+                        let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
                         if lights.button_has_light(Buttons::EncoderPress) {
                             lights.set_button(Buttons::EncoderPress, Brightness::Bright);
                             changed_lights = true;
@@ -1167,45 +1243,32 @@ fn main_loop(
                 }
 
                 if arp_enabled {
-                    // Arp arpeggiates held notes; if Chords mode also on, arpeggiate the chord notes (triad/power)
-                    let notes_for_pad: Vec<u8> = if chords_active {
+                    // Arp arpeggiates held notes; if Chords, use triad/power notes
+                    let base_notes: Vec<u8> = if chords_active {
                         let scale_name = settings.scale_names.get(current_page).map(|s| s.as_str());
-                        let triad = triad_for_pad(&pad_pages[current_page], idx as usize, transpose_offset, scale_name, &settings.chord_types);
-                        // Expand triad across octaves if arp_octaves >1
-                        let mut expanded = Vec::new();
-                        for n in triad {
-                            for oct in 0..arp_octaves {
-                                let v = ((n as i32 + (oct as i32 * 12)).clamp(0,127)) as u8;
-                                expanded.push(v);
-                            }
-                        }
-                        expanded
+                        triad_for_pad(&pad_pages[current_page], idx as usize, transpose_offset, scale_name, &settings.chord_types)
                     } else {
                         let base = pad_pages[current_page][idx as usize] as i32;
-                        let root = ((base + transpose_offset).clamp(0,127)) as u8;
-                        let mut v = Vec::new();
-                        for oct in 0..arp_octaves {
-                            let n = ((root as i32 + (oct as i32 * 12)).clamp(0,127)) as u8;
-                            v.push(n);
-                        }
-                        v
+                        vec![((base + transpose_offset).clamp(0,127)) as u8]
                     };
+                    // For arp, expand each base note across octaves but keep held_arp_notes as single notes per pad
+                    // The actual octave expansion is done in the arp tick to be cyclic (C1 G1 C2 G2) not grouped (C1 C2 G1 G2)
                     match pad_evt {
                         PadEventType::NoteOn | PadEventType::PressOn => {
-                            for n in &notes_for_pad {
+                            for n in &base_notes {
                                 if !held_arp_notes.iter().any(|v| v[0] == *n) {
                                     held_arp_notes.push(vec![*n]);
                                 }
                             }
-                            println!("Arp held add {:?} (oct {}) -> held {}", notes_for_pad, arp_octaves, held_arp_notes.len());
+                            println!("Arp held add {:?} (chords {}) -> held {}", base_notes, chords_active, held_arp_notes.len());
                             lights.set_pad(idx as usize, parse_pad_color(&settings.pad_page_colors.as_ref().and_then(|c| c.get(current_page)).unwrap_or(&"Blue".to_string())).unwrap_or(PadColors::Blue), Brightness::Normal);
                             changed_lights = true;
                         }
                         PadEventType::NoteOff | PadEventType::PressOff => {
-                            for n in &notes_for_pad {
+                            for n in &base_notes {
                                 held_arp_notes.retain(|v| v[0] != *n);
                             }
-                            println!("Arp held remove {:?} -> held {}", notes_for_pad, held_arp_notes.len());
+                            println!("Arp held remove {:?} -> held {}", base_notes, held_arp_notes.len());
                             if held_arp_notes.is_empty() {
                                 if let Some(cur) = arp_current_notes.take() {
                                     for n in cur { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOff { key: n.into(), vel: 0.into() }); }
@@ -1343,7 +1406,6 @@ fn main_loop(
         }
 
         if page_changed {
-            // Update lights for paging: current Bright, others Dim (dim by default gate)
             for p in 0..16 {
                 let br = if p < total_pages {
                     if p == current_page {
@@ -1368,7 +1430,9 @@ fn main_loop(
             changed_lights = true;
             selector_active = true;
             selector_since = Some(Instant::now());
-            if let Err(e) = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset) {
+            if arp_enabled {
+                let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
+            } else if let Err(e) = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset) {
                 eprintln!("screen update failed: {:?}", e);
             }
         }
