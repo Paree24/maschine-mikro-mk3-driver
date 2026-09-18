@@ -1352,38 +1352,36 @@ fn main_loop(
                 let scaled_vel = velocity;
                 let channel = settings.pad_midi_channel();
 
-                // Step: tetrad 1-3-5-7 for 7-tone, fifth+octave for non-7
+                // Step: tetrad 1-3-5-7 for 7-tone, power+octave (root+fifth+octave) for non-7
                 if step_tetrad_active {
                     let scale_name = settings.scale_names.get(current_page).map(|s| s.as_str());
-                    let mut tmp = settings.chord_types.clone();
-                    if let Some(name) = scale_name { tmp.insert(name.to_string(), "tetrad".to_string()); }
-                    let notes_tetrad = triad_for_pad(notes, idx as usize, transpose_offset, scale_name, &tmp);
-                    // For non-7, triad_for_pad with tetrad will still give 4 notes (1-3-5-7) which for pentatonic is not ideal,
-                    // so for non-7 we want power+oct (root, fifth, octave)
-                    let out_notes = {
-                        let phys = {
-                            let to_phys = |driver: &[u8]| -> Vec<u8> {
-                                if driver.len() < 16 { return driver.to_vec(); }
-                                vec![driver[12], driver[13], driver[14], driver[15], driver[8], driver[9], driver[10], driver[11], driver[4], driver[5], driver[6], driver[7], driver[0], driver[1], driver[2], driver[3]]
-                            };
-                            let p = to_phys(notes);
-                            let base = p[0] as i32;
-                            let mut set = std::collections::HashSet::new();
-                            for &n in &p { set.insert((n as i32 - base).rem_euclid(12)); }
-                            let mut iv: Vec<i32> = set.into_iter().collect();
-                            iv.sort_unstable();
-                            iv.len()
+                    let phys = {
+                        let to_phys = |driver: &[u8]| -> Vec<u8> {
+                            if driver.len() < 16 { return driver.to_vec(); }
+                            vec![driver[12], driver[13], driver[14], driver[15], driver[8], driver[9], driver[10], driver[11], driver[4], driver[5], driver[6], driver[7], driver[0], driver[1], driver[2], driver[3]]
                         };
-                        if notes_tetrad.len() == 4 { notes_tetrad } else {
-                            // For non-7, make fifth+octave: root, fifth, octave
-                            let base_n = notes_tetrad[0];
-                            let fifth = ((base_n as i32 + 7).clamp(0,127)) as u8;
-                            let oct = ((base_n as i32 + 12).clamp(0,127)) as u8;
-                            vec![base_n, fifth, oct]
-                        }
+                        let p = to_phys(notes);
+                        let base = p[0] as i32;
+                        let mut set = std::collections::HashSet::new();
+                        for &n in &p { set.insert((n as i32 - base).rem_euclid(12)); }
+                        let mut iv: Vec<i32> = set.into_iter().collect();
+                        iv.sort_unstable();
+                        iv.len()
                     };
-                    // Use out_notes for Step
-                    let tetrad = if out_notes.len() >= 3 { out_notes } else { triad_for_pad(notes, idx as usize, transpose_offset, scale_name, &settings.chord_types) };
+                    let out_notes: Vec<u8> = if phys == 7 {
+                        // 7-tone: tetrad 1-3-5-7
+                        let mut tmp = settings.chord_types.clone();
+                        if let Some(name) = scale_name { tmp.insert(name.to_string(), "tetrad".to_string()); }
+                        triad_for_pad(notes, idx as usize, transpose_offset, scale_name, &tmp)
+                    } else {
+                        // non-7 (chromatic 12, pentatonic 5, blues 6 etc.): power+octave 1-5-8
+                        let base_n = notes[idx as usize] as i32;
+                        let root = ((base_n + transpose_offset).clamp(0,127)) as u8;
+                        let fifth = ((root as i32 + 7).clamp(0,127)) as u8;
+                        let oct = ((root as i32 + 12).clamp(0,127)) as u8;
+                        vec![root, fifth, oct]
+                    };
+                    let tetrad = out_notes;
                     match pad_evt {
                         PadEventType::NoteOn | PadEventType::PressOn => {
                             for n in &tetrad { send_midi(port, channel, MidiMessage::NoteOn { key: (*n).into(), vel: scaled_vel.into() }); }
