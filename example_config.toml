@@ -1,139 +1,139 @@
-# 32 scales (16 base C1 + 16 up an octave C3) – Group 1-16, Auto 17-32, Chords triads 1-3-5
-# Converted from Windows Config 2 + scales (base C1, 2 octaves, transposable)
-
+# 48 scales as per user JSON – Group 1-16, Auto 17-32, Lock 33-48
 client_name = "Maschine Mikro MK3"
 port_name = "Maschine Mikro MK3 MIDI Out"
 
 midi_channel = 0
 pad_channel = 9
 
-# Pad pages: 32 scales, driver idx order permuted so Pad1 bottom-left
 pad_pages = [
   # Chromatic
   [36, 37, 38, 39, 32, 33, 34, 35, 28, 29, 30, 31, 24, 25, 26, 27],
   # Major
   [45, 47, 48, 50, 38, 40, 41, 43, 31, 33, 35, 36, 24, 26, 28, 29],
-  # Minor
-  [44, 46, 48, 50, 38, 39, 41, 43, 31, 32, 34, 36, 24, 26, 27, 29],
   # Dorian
   [45, 46, 48, 50, 38, 39, 41, 43, 31, 33, 34, 36, 24, 26, 27, 29],
-  # Mixolydian
-  [45, 46, 48, 50, 38, 40, 41, 43, 31, 33, 34, 36, 24, 26, 28, 29],
   # Phrygian
   [44, 46, 48, 49, 37, 39, 41, 43, 31, 32, 34, 36, 24, 25, 27, 29],
   # Lydian
   [45, 47, 48, 50, 38, 40, 42, 43, 31, 33, 35, 36, 24, 26, 28, 30],
+  # Mixolydian
+  [45, 46, 48, 50, 38, 40, 41, 43, 31, 33, 34, 36, 24, 26, 28, 29],
+  # Natural Minor
+  [44, 46, 48, 50, 38, 39, 41, 43, 31, 32, 34, 36, 24, 26, 27, 29],
+  # Locrian
+  [44, 46, 48, 49, 37, 39, 41, 42, 30, 32, 34, 36, 24, 25, 27, 29],
   # Harmonic Minor
   [44, 47, 48, 50, 38, 39, 41, 43, 31, 32, 35, 36, 24, 26, 27, 29],
   # Melodic Minor
   [45, 47, 48, 50, 38, 39, 41, 43, 31, 33, 35, 36, 24, 26, 27, 29],
-  # Double Harmonic
-  [44, 47, 48, 49, 37, 40, 41, 43, 31, 32, 35, 36, 24, 25, 28, 29],
+  # Harmonic Major
+  [44, 47, 48, 50, 38, 40, 41, 43, 31, 32, 35, 36, 24, 26, 28, 29],
+  # Phrygian Dominant
+  [44, 46, 48, 49, 37, 40, 41, 43, 31, 32, 34, 36, 24, 25, 28, 29],
+  # Mixolydian b6
+  [44, 46, 48, 50, 38, 40, 41, 43, 31, 32, 34, 36, 24, 26, 28, 29],
+  # Major Pentatonic
+  [52, 55, 57, 60, 43, 45, 48, 50, 33, 36, 38, 40, 24, 26, 28, 31],
   # Minor Pentatonic
   [53, 55, 58, 60, 43, 46, 48, 51, 34, 36, 39, 41, 24, 27, 29, 31],
+  # Major Blues
+  [48, 50, 51, 52, 39, 40, 43, 45, 31, 33, 36, 38, 24, 26, 27, 28],
   # Minor Blues
   [48, 51, 53, 54, 41, 42, 43, 46, 31, 34, 36, 39, 24, 27, 29, 30],
+  # Double Harmonic Major
+  [44, 47, 48, 49, 37, 40, 41, 43, 31, 32, 35, 36, 24, 25, 28, 29],
+  # Neapolitan Minor
+  [44, 47, 48, 49, 37, 39, 41, 43, 31, 32, 35, 36, 24, 25, 27, 29],
+  # Neapolitan Major
+  [45, 47, 48, 49, 37, 40, 41, 43, 31, 33, 35, 36, 24, 25, 28, 29],
   # Hungarian Minor
   [44, 47, 48, 50, 38, 39, 42, 43, 31, 32, 35, 36, 24, 26, 27, 30],
+  # Hungarian Major
+  [45, 46, 48, 51, 39, 40, 42, 43, 31, 33, 34, 36, 24, 27, 28, 30],
+  # Persian
+  [44, 47, 48, 49, 37, 40, 41, 42, 30, 32, 35, 36, 24, 25, 28, 29],
+  # Ukrainian Dorian
+  [45, 46, 48, 50, 38, 39, 42, 43, 31, 33, 34, 36, 24, 26, 27, 30],
   # Hirajoshi
   [51, 55, 56, 60, 43, 44, 48, 50, 32, 36, 38, 39, 24, 26, 27, 31],
   # In Sen
   [53, 55, 58, 60, 43, 46, 48, 49, 34, 36, 37, 41, 24, 25, 29, 31],
   # Iwato
   [53, 54, 58, 60, 42, 46, 48, 49, 34, 36, 37, 41, 24, 25, 29, 30],
-  # Chromatic Up
-  [60, 61, 62, 63, 56, 57, 58, 59, 52, 53, 54, 55, 48, 49, 50, 51],
-  # Major Up
-  [69, 71, 72, 74, 62, 64, 65, 67, 55, 57, 59, 60, 48, 50, 52, 53],
-  # Minor Up
-  [68, 70, 72, 74, 62, 63, 65, 67, 55, 56, 58, 60, 48, 50, 51, 53],
-  # Dorian Up
-  [69, 70, 72, 74, 62, 63, 65, 67, 55, 57, 58, 60, 48, 50, 51, 53],
-  # Mixolydian Up
-  [69, 70, 72, 74, 62, 64, 65, 67, 55, 57, 58, 60, 48, 50, 52, 53],
-  # Phrygian Up
-  [68, 70, 72, 73, 61, 63, 65, 67, 55, 56, 58, 60, 48, 49, 51, 53],
-  # Lydian Up
-  [69, 71, 72, 74, 62, 64, 66, 67, 55, 57, 59, 60, 48, 50, 52, 54],
-  # Harmonic Minor Up
-  [68, 71, 72, 74, 62, 63, 65, 67, 55, 56, 59, 60, 48, 50, 51, 53],
-  # Melodic Minor Up
-  [69, 71, 72, 74, 62, 63, 65, 67, 55, 57, 59, 60, 48, 50, 51, 53],
-  # Double Harmonic Up
-  [68, 71, 72, 73, 61, 64, 65, 67, 55, 56, 59, 60, 48, 49, 52, 53],
-  # Minor Pentatonic Up
-  [77, 79, 82, 84, 67, 70, 72, 75, 58, 60, 63, 65, 48, 51, 53, 55],
-  # Minor Blues Up
-  [72, 75, 77, 78, 65, 66, 67, 70, 55, 58, 60, 63, 48, 51, 53, 54],
-  # Hungarian Minor Up
-  [68, 71, 72, 74, 62, 63, 66, 67, 55, 56, 59, 60, 48, 50, 51, 54],
-  # Hirajoshi Up
-  [75, 79, 80, 84, 67, 68, 72, 74, 56, 60, 62, 63, 48, 50, 51, 55],
-  # In Sen Up
-  [77, 79, 82, 84, 67, 70, 72, 73, 58, 60, 61, 65, 48, 49, 53, 55],
-  # Iwato Up
-  [77, 78, 82, 84, 66, 70, 72, 73, 58, 60, 61, 65, 48, 49, 53, 54],
-  # Chromatic Lock (33-48, Lock+Pad)
-  [72, 73, 74, 75, 68, 69, 70, 71, 64, 65, 66, 67, 60, 61, 62, 63],
-  # Major Lock (33-48, Lock+Pad)
-  [81, 83, 84, 86, 74, 76, 77, 79, 67, 69, 71, 72, 60, 62, 64, 65],
-  # Minor Lock (33-48, Lock+Pad)
-  [80, 82, 84, 86, 74, 75, 77, 79, 67, 68, 70, 72, 60, 62, 63, 65],
-  # Dorian Lock (33-48, Lock+Pad)
-  [81, 82, 84, 86, 74, 75, 77, 79, 67, 69, 70, 72, 60, 62, 63, 65],
-  # Mixolydian Lock (33-48, Lock+Pad)
-  [81, 82, 84, 86, 74, 76, 77, 79, 67, 69, 70, 72, 60, 62, 64, 65],
-  # Phrygian Lock (33-48, Lock+Pad)
-  [80, 82, 84, 85, 73, 75, 77, 79, 67, 68, 70, 72, 60, 61, 63, 65],
-  # Lydian Lock (33-48, Lock+Pad)
-  [81, 83, 84, 86, 74, 76, 78, 79, 67, 69, 71, 72, 60, 62, 64, 66],
-  # Harmonic Minor Lock (33-48, Lock+Pad)
-  [80, 83, 84, 86, 74, 75, 77, 79, 67, 68, 71, 72, 60, 62, 63, 65],
-  # Melodic Minor Lock (33-48, Lock+Pad)
-  [81, 83, 84, 86, 74, 75, 77, 79, 67, 69, 71, 72, 60, 62, 63, 65],
-  # Double Harmonic Lock (33-48, Lock+Pad)
-  [80, 83, 84, 85, 73, 76, 77, 79, 67, 68, 71, 72, 60, 61, 64, 65],
-  # Minor Pentatonic Lock (33-48, Lock+Pad)
-  [89, 91, 94, 96, 79, 82, 84, 87, 70, 72, 75, 77, 60, 63, 65, 67],
-  # Minor Blues Lock (33-48, Lock+Pad)
-  [84, 87, 89, 90, 77, 78, 79, 82, 67, 70, 72, 75, 60, 63, 65, 66],
-  # Hungarian Minor Lock (33-48, Lock+Pad)
-  [80, 83, 84, 86, 74, 75, 78, 79, 67, 68, 71, 72, 60, 62, 63, 66],
-  # Hirajoshi Lock (33-48, Lock+Pad)
-  [87, 91, 92, 96, 79, 80, 84, 86, 68, 72, 74, 75, 60, 62, 63, 67],
-  # In Sen Lock (33-48, Lock+Pad)
-  [89, 91, 94, 96, 79, 82, 84, 85, 70, 72, 73, 77, 60, 61, 65, 67],
-  # Iwato Lock (33-48, Lock+Pad)
-  [89, 90, 94, 96, 78, 82, 84, 85, 70, 72, 73, 77, 60, 61, 65, 66],
+  # Kumoi
+  [51, 55, 57, 60, 43, 45, 48, 50, 33, 36, 38, 39, 24, 26, 27, 31],
+  # Yo
+  [53, 55, 57, 60, 43, 45, 48, 50, 33, 36, 38, 41, 24, 26, 29, 31],
+  # Egyptian
+  [53, 55, 58, 60, 43, 46, 48, 50, 34, 36, 38, 41, 24, 26, 29, 31],
+  # Japanese Ritsu
+  [53, 55, 57, 60, 43, 45, 48, 50, 33, 36, 38, 41, 24, 26, 29, 31],
+  # Japanese Akebono
+  [51, 55, 56, 60, 43, 44, 48, 50, 32, 36, 38, 39, 24, 26, 27, 31],
+  # Japanese Sakura
+  [53, 55, 56, 60, 43, 44, 48, 49, 32, 36, 37, 41, 24, 25, 29, 31],
+  # Japanese Miyako-bushi
+  [51, 55, 56, 60, 43, 44, 48, 49, 32, 36, 37, 39, 24, 25, 27, 31],
+  # Bhairav
+  [44, 47, 48, 49, 37, 40, 41, 43, 31, 32, 35, 36, 24, 25, 28, 29],
+  # Todi
+  [44, 47, 48, 49, 37, 39, 42, 43, 31, 32, 35, 36, 24, 25, 27, 30],
+  # Marwa
+  [45, 47, 48, 49, 37, 40, 42, 43, 31, 33, 35, 36, 24, 25, 28, 30],
+  # Kafi
+  [45, 46, 48, 50, 38, 39, 41, 43, 31, 33, 34, 36, 24, 26, 27, 29],
+  # Hijaz
+  [44, 46, 48, 49, 37, 40, 41, 43, 31, 32, 34, 36, 24, 25, 28, 29],
+  # Bayati
+  [44, 46, 48, 49, 37, 39, 41, 43, 31, 32, 34, 36, 24, 25, 27, 29],
+  # Nahawand
+  [44, 47, 48, 50, 38, 39, 41, 43, 31, 32, 35, 36, 24, 26, 27, 29],
+  # Chinese Shang
+  [45, 46, 48, 50, 38, 39, 41, 43, 31, 33, 34, 36, 24, 26, 27, 29],
+  # Chinese Yu
+  [53, 55, 58, 60, 43, 46, 48, 51, 34, 36, 39, 41, 24, 27, 29, 31],
+  # Pelog
+  [51, 55, 56, 60, 43, 44, 48, 49, 32, 36, 37, 39, 24, 25, 27, 31],
+  # Slendro
+  [53, 55, 58, 60, 43, 46, 48, 50, 34, 36, 38, 41, 24, 26, 29, 31],
+  # Byzantine
+  [44, 47, 48, 49, 37, 40, 41, 43, 31, 32, 35, 36, 24, 25, 28, 29],
+  # Prometheus
+  [48, 50, 52, 54, 40, 42, 45, 46, 33, 34, 36, 38, 24, 26, 28, 30],
+  # Romanian Minor
+  [45, 46, 48, 50, 38, 39, 42, 43, 31, 33, 34, 36, 24, 26, 27, 30],
 ]
-
-pad_page_colors = ['Red', 'Orange', 'LightOrange', 'WarmYellow', 'Yellow', 'Lime', 'Green', 'Mint', 'Cyan', 'Turquoise', 'Blue', 'Plum', 'Violet', 'Purple', 'Magenta', 'Fuchsia', 'White', 'Red', 'Orange', 'LightOrange', 'WarmYellow', 'Yellow', 'Lime', 'Green', 'Mint', 'Cyan', 'Turquoise', 'Blue', 'Plum', 'Violet', 'Purple', 'Magenta', 'Fuchsia', 'White', 'Red', 'Orange', 'LightOrange', 'WarmYellow', 'Yellow', 'Lime', 'Green', 'Mint', 'Cyan', 'Turquoise', 'Blue', 'Plum', 'Violet', 'Purple']
 
 pad_page_button = "Group"
 auto_page_button = "Auto"
 lock_page_button = "Lock"
 pad_page_hold_select = true
 pad_aftertouch = "poly"
-daw_mackie = false  # was true for Mackie MCU (Play 94/Stop 93/Rec 95) but active MIDI input doesn't work as DAW control, so now free (Play/Rec/Stop send CC 57/58/59)
+daw_mackie = false
 
-# Scale names for 32 pages (must match pad_pages order; used for chord config)
-scale_names = ['Chromatic', 'Major', 'Minor', 'Dorian', 'Mixolydian', 'Phrygian', 'Lydian', 'Harmonic Minor', 'Melodic Minor', 'Double Harmonic', 'Minor Pentatonic', 'Minor Blues', 'Hungarian Minor', 'Hirajoshi', 'In Sen', 'Iwato', 'Chromatic Up', 'Major Up', 'Minor Up', 'Dorian Up', 'Mixolydian Up', 'Phrygian Up', 'Lydian Up', 'Harmonic Minor Up', 'Melodic Minor Up', 'Double Harmonic Up', 'Minor Pentatonic Up', 'Minor Blues Up', 'Hungarian Minor Up', 'Hirajoshi Up', 'In Sen Up', 'Iwato Up', 'Chromatic Lock', 'Major Lock', 'Minor Lock', 'Dorian Lock', 'Mixolydian Lock', 'Phrygian Lock', 'Lydian Lock', 'Harmonic Minor Lock', 'Melodic Minor Lock', 'Double Harmonic Lock', 'Minor Pentatonic Lock', 'Minor Blues Lock', 'Hungarian Minor Lock', 'Hirajoshi Lock', 'In Sen Lock', 'Iwato Lock']
+scale_names = ['Chromatic', 'Major', 'Dorian', 'Phrygian', 'Lydian', 'Mixolydian', 'Natural Minor', 'Locrian', 'Harmonic Minor', 'Melodic Minor', 'Harmonic Major', 'Phrygian Dominant', 'Mixolydian b6', 'Major Pentatonic', 'Minor Pentatonic', 'Major Blues', 'Minor Blues', 'Double Harmonic Major', 'Neapolitan Minor', 'Neapolitan Major', 'Hungarian Minor', 'Hungarian Major', 'Persian', 'Ukrainian Dorian', 'Hirajoshi', 'In Sen', 'Iwato', 'Kumoi', 'Yo', 'Egyptian', 'Japanese Ritsu', 'Japanese Akebono', 'Japanese Sakura', 'Japanese Miyako-bushi', 'Bhairav', 'Todi', 'Marwa', 'Kafi', 'Hijaz', 'Bayati', 'Nahawand', 'Chinese Shang', 'Chinese Yu', 'Pelog', 'Slendro', 'Byzantine', 'Prometheus', 'Romanian Minor']
+pad_page_colors = ['Red', 'Orange', 'LightOrange', 'WarmYellow', 'Yellow', 'Lime', 'Green', 'Mint', 'Cyan', 'Turquoise', 'Blue', 'Plum', 'Violet', 'Purple', 'Magenta', 'Fuchsia', 'White', 'Red', 'Orange', 'LightOrange', 'WarmYellow', 'Yellow', 'Lime', 'Green', 'Mint', 'Cyan', 'Turquoise', 'Blue', 'Plum', 'Violet', 'Purple', 'Magenta', 'Fuchsia', 'White', 'Red', 'Orange', 'LightOrange', 'WarmYellow', 'Yellow', 'Lime', 'Green', 'Mint', 'Cyan', 'Turquoise', 'Blue', 'Plum', 'Violet', 'Purple']
 
-# Chord voicings per scale: "power" (root+fifth), "triad" (1-3-5), "tetrad" (1-3-5-7)
-# Default: 7-tone -> triad, non-7 (chromatic 12, pentatonic 5, blues 6) -> power (fixed 7 semitones, straightforward)
-# Override here to make pentatonic triads/tetrads, chromatic tetrads, etc.
 [chord_types]
-Chromatic = "power"
+"Chromatic" = "power"
 "Minor Pentatonic" = "power"
 "Minor Blues" = "power"
 "Hirajoshi" = "power"
 "In Sen" = "power"
 "Iwato" = "power"
-# Examples for 7-tone tetrads:
-# Major = "tetrad"
-# Dorian = "tetrad"
+"Pelog" = "power"
+"Slendro" = "power"
+"Chinese Yu" = "power"
+"Major Pentatonic" = "power"
+"Major Blues" = "power"
+"Japanese Ritsu" = "power"
+"Japanese Akebono" = "power"
+"Japanese Sakura" = "power"
+"Japanese Miyako-bushi" = "power"
+"Egyptian" = "power"
+"Kumoi" = "power"
+"Yo" = "power"
 
-# Transpose: Left/Right semitone, Shift+Left/Right octave
 [transpose]
 semitone_up = "Right"
 semitone_down = "Left"
@@ -141,7 +141,6 @@ octave_up = ""
 octave_down = ""
 reset = ""
 
-# Encoder and Slider from Windows
 [encoder]
 cc = 7
 type = "cc"
@@ -190,4 +189,3 @@ Tap = { type = "cc", cc = 55 }
 Tempo = { type = "cc", cc = 48 }
 Variation = { type = "cc", cc = 88 }
 Volume = { type = "cc", cc = 44 }
-
