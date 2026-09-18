@@ -118,6 +118,12 @@ def parse_ncc(path: Path):
         slider_cc = 1
 
     # groups (pad pages)
+    # Driver idx -> Pad id mapping derived from hardware layout:
+    # Hardware has Pad1 at bottom-left, Pad16 at top-right.
+    # Driver HID idx 0 is top-left, idx 15 bottom-right (vertical flip).
+    # So driver idx order = [Pad13,Pad14,Pad15,Pad16, Pad12,Pad11,Pad10,Pad9, Pad8,Pad7,Pad6,Pad5, Pad1,Pad2,Pad3,Pad4]
+    # This makes Pad1 appear at bottom where user expects, Pad16 at top.
+    DRIVER_IDX_TO_PAD = [13,14,15,16,12,11,10,9,8,7,6,5,1,2,3,4]
     groups = []
     groups_elem = midi_map.find("groups")
     if groups_elem is not None:
@@ -130,14 +136,11 @@ def parse_ncc(path: Path):
                 if note_elem is not None and pad.get("subtype") == "trigger":
                     pads[pid] = int(note_elem.text)
             if pads:
-                # order Pad1..16 as driver idx 0..15 (Pad1 = idx0)
+                # order as driver idx 0..15 via Pad mapping above
                 ordered = []
-                for i in range(1, 17):
-                    key = f"Pad{i}"
-                    if key in pads:
-                        ordered.append(pads[key])
-                    else:
-                        ordered.append(0)
+                for pad_num in DRIVER_IDX_TO_PAD:
+                    key = f"Pad{pad_num}"
+                    ordered.append(pads.get(key, 0))
                 groups.append((name, ordered))
             else:
                 # group without pads (e.g., CC pages) – skip for pad_pages
@@ -168,9 +171,10 @@ def generate_toml(data):
     lines.append("pad_channel = 9")
     lines.append("")
     lines.append("# Pad pages from Windows groups (in file order).")
-    lines.append("# Driver idx 0 = Pad1, idx 15 = Pad16 (matches Controller Editor Pad1..16)")
-    lines.append("# Physical layout note: Controller Editor already compensates for snake wiring,")
-    lines.append("# so this order gives sequential chromatic left->right bottom->top physically.")
+    lines.append("# Driver idx order is permuted: idx0=top-left=Pad13, idx12=bottom-left=Pad1")
+    lines.append("# Mapping: driver idx 0..15 -> Pad [13,14,15,16,12,11,10,9,8,7,6,5,1,2,3,4]")
+    lines.append("# This makes Pad1 appear at bottom (where hardware has 1) and Pad16 at top,")
+    lines.append("# giving sequential chromatic left->right bottom->top physically.")
     lines.append("pad_pages = [")
     for name, notes in groups:
         # Use repr to keep Python list style -> TOML compatible
