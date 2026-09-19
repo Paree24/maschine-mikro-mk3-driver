@@ -134,7 +134,7 @@ Paging buttons are reserved — won’t send MIDI when paging is active.
 | `Volume` | **Toggle sustain** | `CC 44` overridden | **Reserved** | `Bright` = `CC64 127` sustain, `Dim` = off |
 | `Swing` | **Gate** arp swing | `CC 46` | **Reserved** | Cycles `Straight 50 / Light 55 / Medium 60 / Triplet 66.7` `Bright` on press `Dim` on release |
 | `Tempo` | Gate / CC | `CC 48` | Reserved when arp on (Bright), else CC | Free when arp off |
-| `Plugin` | **Toggle hold** | `CC 45` overridden | **Reserved** | `Bright` = hold note/chord, `Dim` = release |
+| `Plugin` | **Toggle hold/latch** | `CC 45` overridden | **Reserved** | `Bright` = hold note/chord + arp latch, `Dim` = release all |
 | `Sampling` | Gate (arp) | `CC 47` | Reserved when arp on | Cycles `arp_octaves 1→2→3→4→1` |
 | `Left` | **Transpose −1** | – (reserved) | Reserved | `Shift+Left` = −12 octave, range `−48..+48` |
 | `Right` | **Transpose +1** | – (reserved) | Reserved | `Shift+Right` = +12 |

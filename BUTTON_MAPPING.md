@@ -21,7 +21,7 @@
 | 3 | **Volume** | **Toggle sustain** | `CC 44` overridden | **Reserved** | `Bright` = `CC64 127` sustain on, `Dim` = `CC64 0` off (pad + midi ch) |
 | 4 | **Swing** | **Gate arp swing** | `CC 46` overridden | **Reserved** | Cycles `Straight 50 → Light 55 → Medium 60 → Triplet 66.7` `Bright`/`Dim`, interval `long=rate*swing/50` `short=rate*(100-swing)/50` |
 | 5 | **Tempo** | Gate (arp) / CC | `CC 48` | Reserved when arp on `Bright`, else CC | Free when arp off |
-| 6 | **Plugin** | **Toggle hold** | `CC 45` overridden | **Reserved** | `Bright` = hold note/chord (suppress `NoteOff`), `Dim` = release held |
+| 6 | **Plugin** | **Toggle hold/latch** | `CC 45` overridden | **Reserved** | `Bright` = hold note/chord (suppress `NoteOff`) + arp latch (keeps arpeggiating after release), `Dim` = release all held/latched |
 | 7 | **Sampling** | Gate (arp) | `CC 47` | Reserved when arp on | Cycles `arp_octaves 1→2→3→4→1` `Bright`/`Dim` |
 | 8 | **Left** | **Transpose −1** | – (reserved) | **Reserved** | `Shift+Left` = −12 octave, range `−48..+48`. Freed from CC. |
 | 9 | **Right** | **Transpose +1** | – (reserved) | **Reserved** | `Shift+Right` = +12 |
