@@ -1338,6 +1338,20 @@ fn main_loop(
                                 if lights.button_has_light(Buttons::Plugin) { lights.set_button(Buttons::Plugin, if plugin_hold { Brightness::Bright } else { Brightness::Dim }); changed_lights = true; }
                                 if !plugin_hold {
                                     for n in plugin_held_notes.drain(..) { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOff { key: n.into(), vel: 0.into() }); let ch2 = settings.effective_channel(None); if ch2 != settings.pad_midi_channel() { send_midi(port, ch2, MidiMessage::NoteOff { key: n.into(), vel: 0.into() }); } }
+                                    // Release arp latch as well
+                                    if !held_arp_notes.is_empty() {
+                                        held_arp_notes.clear();
+                                        if let Some(cur) = arp_current_notes.take() {
+                                            for n in cur { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOff { key: n.into(), vel: 0.into() }); }
+                                        }
+                                        arp_pos = 0;
+                                        arp_dir = 1;
+                                        let col = if let Some(pc) = &settings.pad_page_colors {
+                                            if !pc.is_empty() { parse_pad_color(&pc[current_page % pc.len()]).unwrap_or(PadColors::Blue) } else { PadColors::Blue }
+                                        } else { PadColors::Blue };
+                                        for p in 0..16 { lights.set_pad(p, col, Brightness::Dim); }
+                                        println!("Plugin hold off: arp latch released");
+                                    }
                                 }
                             }
                         } else if button == Buttons::Restart {
@@ -1793,19 +1807,26 @@ fn main_loop(
                             changed_lights = true;
                         }
                         PadEventType::NoteOff | PadEventType::PressOff => {
-                            for n in &base_notes {
-                                held_arp_notes.retain(|v| v[0] != *n);
-                            }
-                            println!("Arp held remove {:?} -> held {}", base_notes, held_arp_notes.len());
-                            if held_arp_notes.is_empty() {
-                                if let Some(cur) = arp_current_notes.take() {
-                                    for n in cur { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOff { key: n.into(), vel: 0.into() }); }
+                            if plugin_hold {
+                                // Arp latch: keep arpeggiating after pad release while Plugin hold is on
+                                println!("Arp latched {:?} (plugin hold) -> held {}", base_notes, held_arp_notes.len());
+                                lights.set_pad(idx as usize, parse_pad_color(&settings.pad_page_colors.as_ref().and_then(|c| c.get(current_page)).unwrap_or(&"Blue".to_string())).unwrap_or(PadColors::Blue), Brightness::Normal);
+                                changed_lights = true;
+                            } else {
+                                for n in &base_notes {
+                                    held_arp_notes.retain(|v| v[0] != *n);
                                 }
-                                arp_pos = 0;
-                                arp_dir = 1;
+                                println!("Arp held remove {:?} -> held {}", base_notes, held_arp_notes.len());
+                                if held_arp_notes.is_empty() {
+                                    if let Some(cur) = arp_current_notes.take() {
+                                        for n in cur { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOff { key: n.into(), vel: 0.into() }); }
+                                    }
+                                    arp_pos = 0;
+                                    arp_dir = 1;
+                                }
+                                lights.set_pad(idx as usize, parse_pad_color(&settings.pad_page_colors.as_ref().and_then(|c| c.get(current_page)).unwrap_or(&"Blue".to_string())).unwrap_or(PadColors::Blue), Brightness::Dim);
+                                changed_lights = true;
                             }
-                            lights.set_pad(idx as usize, parse_pad_color(&settings.pad_page_colors.as_ref().and_then(|c| c.get(current_page)).unwrap_or(&"Blue".to_string())).unwrap_or(PadColors::Blue), Brightness::Dim);
-                            changed_lights = true;
                         }
                         _ => {}
                     }
