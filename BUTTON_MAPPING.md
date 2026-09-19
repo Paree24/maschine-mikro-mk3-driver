@@ -18,10 +18,10 @@
 | 0 | **Maschine** | Gate (arp) / CC | `CC 38` | **Reserved when arp on** `faster rate`, else CC | Arp `Maschine` = faster (next pure fraction `3/4..1/96`) `Bright` on press |
 | 1 | **Star** | Gate (arp) / CC | `CC 39` | Reserved when arp on `slower rate`, else CC | Arp `Star` = slower |
 | 2 | **Browse** | **Gate** | `CC 40` overridden | **Reserved** | Resets `arp` to `1/16` `Straight` `Bright` on press `Dim` on release |
-| 3 | **Volume** | CC | `CC 44` | Sends CC | Free |
+| 3 | **Volume** | **Toggle sustain** | `CC 44` overridden | **Reserved** | `Bright` = `CC64 127` sustain on, `Dim` = `CC64 0` off (pad + midi ch) |
 | 4 | **Swing** | **Gate arp swing** | `CC 46` overridden | **Reserved** | Cycles `Straight 50 → Light 55 → Medium 60 → Triplet 66.7` `Bright`/`Dim`, interval `long=rate*swing/50` `short=rate*(100-swing)/50` |
 | 5 | **Tempo** | Gate (arp) / CC | `CC 48` | Reserved when arp on `Bright`, else CC | Free when arp off |
-| 6 | **Plugin** | CC | `CC 45` | Sends CC | Free |
+| 6 | **Plugin** | **Toggle hold** | `CC 45` overridden | **Reserved** | `Bright` = hold note/chord (suppress `NoteOff`), `Dim` = release held |
 | 7 | **Sampling** | Gate (arp) | `CC 47` | Reserved when arp on | Cycles `arp_octaves 1→2→3→4→1` `Bright`/`Dim` |
 | 8 | **Left** | **Transpose −1** | – (reserved) | **Reserved** | `Shift+Left` = −12 octave, range `−48..+48`. Freed from CC. |
 | 9 | **Right** | **Transpose +1** | – (reserved) | **Reserved** | `Shift+Right` = +12 |
@@ -33,10 +33,10 @@
 | 15 | **Auto** | **Page 17-32** | `CC 35` overridden | **Reserved** | `Auto` tap cycles `17-32`, hold `Auto`+pad selects `17-32`. Count limited to 16. |
 | 16 | **Lock** | **Page 33-48** | `CC 36` overridden | **Reserved** | `Lock` tap cycles `33-48`, hold `Lock`+pad selects `33-48`. |
 | 17 | **NoteRepeat** | **Toggle arp** | `CC 37` | **Reserved** | `Bright` = `arp_enabled`, `Dim` = off |
-| 18 | **Restart** | CC | `CC 53` | Sends CC | Free |
-| 19 | **Erase** | CC | `CC 54` | Sends CC | Free |
-| 20 | **Tap** | CC | `CC 55` | Sends CC | Free |
-| 21 | **Follow** | CC | `CC 56` | Sends CC | Free |
+| 18 | **Restart (Loop)** | **Gate sus4** | `CC 53` overridden | **Reserved** | Held `Bright` `root+5+7` sus4, `Dim` off |
+| 19 | **Erase** | **Gate sus2** | `CC 54` overridden | **Reserved** | Held `Bright` `root+2+7` sus2 |
+| 20 | **Tap** | **Gate dim** | `CC 55` overridden | **Reserved** | Held `Bright` `root+3+6` dim |
+| 21 | **Follow** | **Gate aug** | `CC 56` overridden | **Reserved** | Held `Bright` `root+4+8` aug |
 | 22 | **Play** | CC / Mackie | `CC 57` | Sends CC or Mackie `Note 94` if `daw_mackie=true` | |
 | 23 | **Rec** | CC / Mackie | `CC 58` | Sends CC or `Note 95` | |
 | 24 | **Stop** | CC / Mackie | `CC 59` | Sends CC or `Note 93` | |
@@ -65,7 +65,7 @@
 
 ## What is Free?
 
-* **Truly free (no driver logic):** `Volume`, `Plugin`, `Restart`, `Erase`, `Tap`, `Follow`, `Play/Rec/Stop` (when `daw_mackie=false`), `EncoderPress/Touch` — all send CC and can be remapped in DAW or repurposed by adding a new check in `main.rs`.
+* **Truly free (no driver logic):** `EncoderPress/Touch` — all send CC and can be remapped in DAW or repurposed by adding a new check in `main.rs`.
 * **Reserved (driver):** `Group`, `Auto`, `Lock`, `PadMode` (paging + gate), `Pitch`, `Mod`, `Perform` (strip 3-way), `Left`, `Right`, `Shift` (transpose), `Chords`, `Step` (toggles), `Scene`, `Pattern`, `Events`, `Variation`, `Duplicate`, `Select`, `Solo`, `Mute` (gates), `NoteRepeat`, `Notes`, `Maschine`, `Star`, `Sampling`, `Swing` (arp), `FixedVol`, `Tempo` (when arp on). Change via `example_config.toml` or code.
 
 ---

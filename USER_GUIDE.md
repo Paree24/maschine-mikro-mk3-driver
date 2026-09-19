@@ -131,10 +131,10 @@ Paging buttons are reserved — won’t send MIDI when paging is active.
 | `Maschine` | Gate (arp) / CC | `CC 38` | **Reserved when arp on** `faster rate`, else sends CC | Arp rate `faster` (next pure fraction `3/4..1/96`) |
 | `Star` | Gate (arp) / CC | `CC 39` | Reserved when arp on `slower rate`, else CC | Arp rate `slower` |
 | `Browse` | **Gate** | `CC 40` overridden | **Reserved** | Resets `arp` to `1/16` `Straight` `Bright` on press `Dim` on release |
-| `Volume` | CC | `CC 44` | Sends CC | Free |
+| `Volume` | **Toggle sustain** | `CC 44` overridden | **Reserved** | `Bright` = `CC64 127` sustain, `Dim` = off |
 | `Swing` | **Gate** arp swing | `CC 46` | **Reserved** | Cycles `Straight 50 / Light 55 / Medium 60 / Triplet 66.7` `Bright` on press `Dim` on release |
 | `Tempo` | Gate / CC | `CC 48` | Reserved when arp on (Bright), else CC | Free when arp off |
-| `Plugin` | CC | `CC 45` | Sends CC | Free |
+| `Plugin` | **Toggle hold** | `CC 45` overridden | **Reserved** | `Bright` = hold note/chord, `Dim` = release |
 | `Sampling` | Gate (arp) | `CC 47` | Reserved when arp on | Cycles `arp_octaves 1→2→3→4→1` |
 | `Left` | **Transpose −1** | – (reserved) | Reserved | `Shift+Left` = −12 octave, range `−48..+48` |
 | `Right` | **Transpose +1** | – (reserved) | Reserved | `Shift+Right` = +12 |
@@ -146,10 +146,10 @@ Paging buttons are reserved — won’t send MIDI when paging is active.
 | `Auto` | **Page 17-32** | `CC 35` overridden | Reserved | |
 | `Lock` | **Page 33-48** | `CC 36` overridden | Reserved | |
 | `NoteRepeat` | **Toggle** arp | `CC 37` | Reserved | Toggles `arp_enabled` `Bright` on / `Dim` off |
-| `Restart` | CC | `CC 53` | Sends CC | Free |
-| `Erase` | CC | `CC 54` | Sends CC | Free |
-| `Tap` | CC | `CC 55` | Sends CC | Free |
-| `Follow` | CC | `CC 56` | Sends CC | Free |
+| `Restart (Loop)` | **Gate sus4** | `CC 53` overridden | **Reserved** | Held `Bright` `root+5+7` |
+| `Erase` | **Gate sus2** | `CC 54` overridden | **Reserved** | Held `Bright` `root+2+7` |
+| `Tap` | **Gate dim** | `CC 55` overridden | **Reserved** | Held `Bright` `root+3+6` |
+| `Follow` | **Gate aug** | `CC 56` overridden | **Reserved** | Held `Bright` `root+4+8` |
 | `Play/Rec/Stop` | CC / Mackie | `CC 57/58/59` | Sends CC or Mackie `Note 94/95/93` if `daw_mackie=true` | |
 | `Shift` | Modifier | – (no CC) | Reserved | Held with `Left/Right` for octave |
 | `FixedVol` | **Toggle** | `CC 80` | Reserved | `Bright` = `127` fixed, `Dim` = velocity |
