@@ -96,14 +96,14 @@ Defaults defined in `crates/driver/src/settings.rs:277` and `example_config.toml
 
 ### 4.1 Pads — 80 Pages (48 scales + 16 drums + 16 keyboard)
 
-`pad_pages` is 80 pages by default (max 80). Page `0` is startup. `example_config.toml` ships 48 scales + 16 drum kits + 16 keyboard scales (from SCALES repo).
+`pad_pages` is 80 pages by default (max 80). Page `0` is startup. `example_config.toml` ships 48 scales + 16 keyboard scales (from SCALES repo) + 16 drum pages (`65` Micro Drum Sampler, `66` MT Power Kit, `67` General MIDI, `68` Salamander Kit, `69-80` generic).
 
 | Bank | Button | Pages | Purpose |
 |------|--------|-------|---------|
 | **Group** | `Group+Pad` / tap `Group` | 1-16 (0-15) | Scales 1-16 (Chromatic … Iwato) |
 | **Auto** | `Auto+Pad` / tap `Auto` | 17-32 (16-31) | Scales 17-32 (Kumoi … Romanian Minor) |
 | **Lock** | `Lock+Pad` / tap `Lock` | 33-48 (32-47) | Scales 33-48 (… up) |
-| **PadMode** | `PadMode+Pad` / tap `PadMode` | 49-64 (48-63) | Drums 1-16 (fresh, `36,38,42,46... +2 per page`) — gate unlocks |
+| **PadMode** | `PadMode+Pad` / tap `PadMode` | 65-80 (64-79) | `65` Micro Drum Sampler (exact NCC), `66` MT Power Kit (GM core), `67` General MIDI 35-50, `68` Salamander Kit (Sforzando), `69-80` generic kits — gate unlocks |
 | **Keyboard** | `Keyboard+Pad` / tap `Keyboard` | 65-80 (64-79) | Keyboard 1-16 (repo scales: `major blues`/`bebop`/`diminished`/`lydian dominant`/`altered`/`dorian b2`/`ultralocrian`/`augmented heptatonic`/`whole tone`/`locrian major`/`double harmonic lydian`/`enigmatic`/`major augmented`/`messiaen #4`/`composite blues`/`lydian augmented`) — gate unlocks |
 
 `pad_page_button="Group"`, `auto_page_button="Auto"`, `lock_page_button="Lock"`, padmode hard-coded to `48`. Hold-select: `pad_page_hold_select=true` (hold button + tap pad selects directly, tap alone cycles). Set `pad_page_button=""` to disable paging.
@@ -235,7 +235,7 @@ pad_channel  = 9
 pad_pages = [
   [36,38,42,46,...], # 0: Chromatic
   ... # 1-47 scales
-  [36,38,42,46,...], # 48: Drums 1
+  [49,57,51,53,...], # 64: Micro Drum Sampler (65)
   ... # 64-79: Keyboard scales
 ]
 pad_page_button = "Group"
@@ -244,7 +244,7 @@ lock_page_button = "Lock"  # PadMode is hard-coded for 49-64
 pad_page_hold_select = true
 pad_aftertouch = "poly"     # or "channel" / "cc" / "off"
 
-scale_names = ["Chromatic","Major",...,"Drums 16","Major Blues Kbd",...,"Lydian Augmented Kbd"] # 80
+scale_names = ["Chromatic","Major",...,"Micro Drum Sampler","MT Power Kit","General MIDI Kit","Salamander Kit","Drums 5",...,"Drums 16"] # 80
 pad_page_colors = ["Red","Orange",...,"White"] # 64
 
 [chord_types]
@@ -314,7 +314,7 @@ Brightness: `Off=0x00, Dim=0x7c, Normal=0x7e, Bright=0x7f` (`lights.rs:6`).
 | `Group` doesn’t send MIDI | It’s paging button — reserved when `pad_pages.len()>1`. Set `pad_page_button=""` or map different button. Same for `Auto`/`Lock`/`PadMode`/`Left`/`Right`/`Pitch`/`Mod`/`Perform`/`Chords`/`Step`/gates/arp. |
 | Encoder feels inverted | `mode=relative` emits `1` CW / `127` CCW; some DAWs expect `65/63`. Swap in DAW mapping or log `Encoder: ...`. |
 | Strip is jumpy / LEDs flicker | Raw `1–200` scaled to `0–127`; touching near edge is normal. `Pitch` spring vs `Mod`/`Free` hold is intentional. |
-| PadMode doesn’t go to drums | Requires `pad_pages` 64 and `total_pages>48`. Hold `PadMode` + tap pad `0` → `49`, tap `PadMode` alone cycles `49→50…`. Check logs `Pad page selected via PadMode`. |
+| PadMode doesn’t go to drums | Requires `total_pages>64`. Hold `PadMode` + tap pad `0` → `65`, tap `PadMode` alone cycles `65→66…`. Check logs `Pad page selected via PadMode`. |
 
 Logs: driver prints `Button press/release`, `Pad idx: NoteOn @ vel (page n)`, `Encoder rel delta`, `Slider -> CC/PitchBend`, `Pad page selected`, `Strip mode ->`, `Arp ->`, `Swing ->`, `Transpose ->` (`main.rs`).
 

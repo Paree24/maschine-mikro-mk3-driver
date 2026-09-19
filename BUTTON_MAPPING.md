@@ -56,7 +56,7 @@
 | 38 | **Mute** | **Gate** | `CC 92` overridden | **Reserved** | `+11th` `root+17` additive |
 | 39 | **EncoderPress** | CC | `CC 8` | Sends CC | Encoder itself `CC 7` `relative` |
 
-**Pads 1-16** — `pad_pages` 64 scales (`Chromatic` … `Romanian Minor` `0-47` + `Drums 1-16` `48-63`), `Group`/`Auto`/`Lock`/`PadMode` paging, `transpose_offset` `−48..+48`, `Chords`/`Step` + gates (`Scene` etc.) + `Solo`/`Mute` extensions + `arp` + `FixedVol`. Pads `Dim` default, `Normal` on press, `Dim` on release; page selector `Bright`/`Dim` 700 ms.
+**Pads 1-16** — `pad_pages` 80 (`Chromatic` … `Romanian Minor` `0-47` + 16 keyboard `48-63` + drums `64-79`: `65` Micro Drum Sampler, `66` MT Power Kit, `67` General MIDI, `68` Salamander Kit, `69-80` generic), `Group`/`Auto`/`Lock`/`PadMode` paging, `transpose_offset` `−48..+48`, `Chords`/`Step` + gates (`Scene` etc.) + `Solo`/`Mute` extensions + `arp` + `FixedVol`. Pads `Dim` default, `Normal` on press, `Dim` on release; page selector `Bright`/`Dim` 700 ms.
 
 **Encoder** (`buf[7]`) — `CC 7` `relative` (1 cw / 127 ccw) filtered `±1/±2`.  
 **Touch Strip** (`buf[10]`) — `PitchBend` (on `pad_channel` + mirror, `0..16383`, center `8192`) when `Pitch` latched, else `CC1` modwheel / `CC16` free, 25 LEDs follow position (spring vs hold).
