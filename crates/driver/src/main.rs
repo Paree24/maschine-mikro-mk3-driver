@@ -627,6 +627,9 @@ fn main_loop(
     let mut play_inv1 = false;
     let mut rec_inv2 = false;
     let mut stop_oct = false;
+    let mut volume_sustain = false;
+    let mut plugin_hold = false;
+    let mut plugin_held_notes: Vec<u8> = Vec::new();
     // Gate holds for chord/page modifiers (all momentary)
     let mut padmode_held = false;
     let mut scene_held = false;
@@ -637,6 +640,10 @@ fn main_loop(
     let mut select_held = false;
     let mut solo_held = false;
     let mut mute_held = false;
+    let mut loop_held = false;
+    let mut erase_held = false;
+    let mut tap_held = false;
+    let mut follow_held = false;
     let mut keyboard_held = false;
     let mut keyboard_page_holding = false;
     let mut keyboard_selected_via_pad = false;
@@ -1313,6 +1320,42 @@ fn main_loop(
                                 changed_lights = true;
                             }
                             println!("Mute gate -> {} (+11th)", if status { "on" } else { "off" });
+                        } else if button == Buttons::Volume {
+                            if status {
+                                volume_sustain = !volume_sustain;
+                                let val = if volume_sustain { 127 } else { 0 };
+                                let ch = settings.pad_midi_channel();
+                                send_midi(port, ch, MidiMessage::Controller { controller: 64.into(), value: val.into() });
+                                let ch2 = settings.effective_channel(None);
+                                if ch2 != ch { send_midi(port, ch2, MidiMessage::Controller { controller: 64.into(), value: val.into() }); }
+                                println!("Volume sustain -> {} (CC64 {})", if volume_sustain { "on" } else { "off" }, val);
+                                if lights.button_has_light(Buttons::Volume) { lights.set_button(Buttons::Volume, if volume_sustain { Brightness::Bright } else { Brightness::Dim }); changed_lights = true; }
+                            }
+                        } else if button == Buttons::Plugin {
+                            if status {
+                                plugin_hold = !plugin_hold;
+                                println!("Plugin hold -> {}", if plugin_hold { "on (hold note/chord)" } else { "off (release held)" });
+                                if lights.button_has_light(Buttons::Plugin) { lights.set_button(Buttons::Plugin, if plugin_hold { Brightness::Bright } else { Brightness::Dim }); changed_lights = true; }
+                                if !plugin_hold {
+                                    for n in plugin_held_notes.drain(..) { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOff { key: n.into(), vel: 0.into() }); let ch2 = settings.effective_channel(None); if ch2 != settings.pad_midi_channel() { send_midi(port, ch2, MidiMessage::NoteOff { key: n.into(), vel: 0.into() }); } }
+                                }
+                            }
+                        } else if button == Buttons::Restart {
+                            loop_held = status;
+                            if lights.button_has_light(Buttons::Restart) { lights.set_button(Buttons::Restart, if status { Brightness::Bright } else { Brightness::Dim }); changed_lights = true; }
+                            println!("Loop gate -> {} (sus4)", if status { "on" } else { "off" });
+                        } else if button == Buttons::Erase {
+                            erase_held = status;
+                            if lights.button_has_light(Buttons::Erase) { lights.set_button(Buttons::Erase, if status { Brightness::Bright } else { Brightness::Dim }); changed_lights = true; }
+                            println!("Erase gate -> {} (sus2)", if status { "on" } else { "off" });
+                        } else if button == Buttons::Tap {
+                            tap_held = status;
+                            if lights.button_has_light(Buttons::Tap) { lights.set_button(Buttons::Tap, if status { Brightness::Bright } else { Brightness::Dim }); changed_lights = true; }
+                            println!("Tap gate -> {} (dim)", if status { "on" } else { "off" });
+                        } else if button == Buttons::Follow {
+                            follow_held = status;
+                            if lights.button_has_light(Buttons::Follow) { lights.set_button(Buttons::Follow, if status { Brightness::Bright } else { Brightness::Dim }); changed_lights = true; }
+                            println!("Follow gate -> {} (aug)", if status { "on" } else { "off" });
                         } else if let Some(action) = transpose_action(settings, button) {
                             if status {
                                 let delta = match action {
@@ -1710,7 +1753,15 @@ fn main_loop(
                         if !base_notes.is_empty() {
                             if duplicate_held && !select_held { let r = base_notes[0] as i32; base_notes = vec![r as u8, ((r+7).clamp(0,127)) as u8]; }
                             else if select_held { let r = base_notes[0] as i32; base_notes = vec![r as u8, ((r+7).clamp(0,127)) as u8, ((r+12).clamp(0,127)) as u8]; }
-                            else {
+                            else if loop_held {
+                                let root = base_notes[0] as i32; base_notes = vec![root as u8, ((root+5).clamp(0,127)) as u8, ((root+7).clamp(0,127)) as u8];
+                            } else if erase_held {
+                                let root = base_notes[0] as i32; base_notes = vec![root as u8, ((root+2).clamp(0,127)) as u8, ((root+7).clamp(0,127)) as u8];
+                            } else if tap_held {
+                                let root = base_notes[0] as i32; base_notes = vec![root as u8, ((root+3).clamp(0,127)) as u8, ((root+6).clamp(0,127)) as u8];
+                            } else if follow_held {
+                                let root = base_notes[0] as i32; base_notes = vec![root as u8, ((root+4).clamp(0,127)) as u8, ((root+8).clamp(0,127)) as u8];
+                            } else {
                                 if scene_held && base_notes.len() == 3 { let mut tmp = settings.chord_types.clone(); let sn = settings.scale_names.get(current_page).map(|s| s.as_str()); if let Some(name) = sn { tmp.insert(name.to_string(), "tetrad".to_string()); } base_notes = triad_for_pad(arp_notes_src, idx as usize, transpose_offset, sn, &tmp); }
                                 if pattern_held && base_notes.len() == 4 { base_notes.truncate(3); }
                                 if events_held && base_notes.len() >=2 { let r = base_notes[0] as i32; let t = base_notes[1] as i32; if (t-r).rem_euclid(12)==4 { base_notes[1]=((t-1).clamp(0,127)) as u8; } if base_notes.len()==4 { let s = base_notes[3] as i32; if (s-r).rem_euclid(12)==11 { base_notes[3]=((s-1).clamp(0,127)) as u8; } } }
@@ -1856,6 +1907,14 @@ fn main_loop(
                                 let fifth = ((root + 7).clamp(0,127)) as u8;
                                 let oct = ((root + 12).clamp(0,127)) as u8;
                                 g = vec![root as u8, fifth, oct];
+                            } else if loop_held {
+                                let root = g[0] as i32; g = vec![root as u8, ((root+5).clamp(0,127)) as u8, ((root+7).clamp(0,127)) as u8];
+                            } else if erase_held {
+                                let root = g[0] as i32; g = vec![root as u8, ((root+2).clamp(0,127)) as u8, ((root+7).clamp(0,127)) as u8];
+                            } else if tap_held {
+                                let root = g[0] as i32; g = vec![root as u8, ((root+3).clamp(0,127)) as u8, ((root+6).clamp(0,127)) as u8];
+                            } else if follow_held {
+                                let root = g[0] as i32; g = vec![root as u8, ((root+4).clamp(0,127)) as u8, ((root+8).clamp(0,127)) as u8];
                             } else {
                                 if scene_held && g.len() == 3 {
                                     let mut tmp = settings.chord_types.clone();
@@ -1891,10 +1950,14 @@ fn main_loop(
                     }
                     match pad_evt {
                         PadEventType::NoteOn | PadEventType::PressOn => {
-                            for n in &tetrad { send_midi(port, channel, MidiMessage::NoteOn { key: (*n).into(), vel: scaled_vel.into() }); }
+                            for n in &tetrad { send_midi(port, channel, MidiMessage::NoteOn { key: (*n).into(), vel: scaled_vel.into() }); if plugin_hold && !plugin_held_notes.contains(n) { plugin_held_notes.push(*n); } }
                         }
                         PadEventType::NoteOff | PadEventType::PressOff => {
-                            for n in &tetrad { send_midi(port, channel, MidiMessage::NoteOff { key: (*n).into(), vel: scaled_vel.into() }); }
+                            if plugin_hold {
+                                for n in &tetrad { if !plugin_held_notes.contains(n) { plugin_held_notes.push(*n); } }
+                            } else {
+                                for n in &tetrad { send_midi(port, channel, MidiMessage::NoteOff { key: (*n).into(), vel: scaled_vel.into() }); }
+                            }
                         }
                         PadEventType::Aftertouch => {
                             match settings.pad_aftertouch.as_str() {
@@ -1920,6 +1983,14 @@ fn main_loop(
                                 let root = g[0] as i32; let fifth = ((root + 7).clamp(0,127)) as u8; g = vec![root as u8, fifth];
                             } else if select_held {
                                 let root = g[0] as i32; let fifth = ((root + 7).clamp(0,127)) as u8; let oct = ((root + 12).clamp(0,127)) as u8; g = vec![root as u8, fifth, oct];
+                            } else if loop_held {
+                                let root = g[0] as i32; g = vec![root as u8, ((root+5).clamp(0,127)) as u8, ((root+7).clamp(0,127)) as u8];
+                            } else if erase_held {
+                                let root = g[0] as i32; g = vec![root as u8, ((root+2).clamp(0,127)) as u8, ((root+7).clamp(0,127)) as u8];
+                            } else if tap_held {
+                                let root = g[0] as i32; g = vec![root as u8, ((root+3).clamp(0,127)) as u8, ((root+6).clamp(0,127)) as u8];
+                            } else if follow_held {
+                                let root = g[0] as i32; g = vec![root as u8, ((root+4).clamp(0,127)) as u8, ((root+8).clamp(0,127)) as u8];
                             } else {
                                 if scene_held && g.len() == 3 {
                                     let mut tmp = settings.chord_types.clone(); if let Some(name) = scale_name { tmp.insert(name.to_string(), "tetrad".to_string()); }
@@ -1947,11 +2018,16 @@ fn main_loop(
                         PadEventType::NoteOn | PadEventType::PressOn => {
                             for n in triad {
                                 send_midi(port, channel, MidiMessage::NoteOn { key: n.into(), vel: scaled_vel.into() });
+                                if plugin_hold && !plugin_held_notes.contains(&n) { plugin_held_notes.push(n); }
                             }
                         }
                         PadEventType::NoteOff | PadEventType::PressOff => {
-                            for n in triad {
-                                send_midi(port, channel, MidiMessage::NoteOff { key: n.into(), vel: scaled_vel.into() });
+                            if plugin_hold {
+                                for n in triad { if !plugin_held_notes.contains(&n) { plugin_held_notes.push(n); } }
+                            } else {
+                                for n in triad {
+                                    send_midi(port, channel, MidiMessage::NoteOff { key: n.into(), vel: scaled_vel.into() });
+                                }
                             }
                         }
                         PadEventType::Aftertouch => {
@@ -1981,6 +2057,14 @@ fn main_loop(
                         let root = g[0] as i32; let fifth = ((root + 7).clamp(0,127)) as u8; g = vec![root as u8, fifth];
                     } else if select_held {
                         let root = g[0] as i32; let fifth = ((root + 7).clamp(0,127)) as u8; let oct = ((root + 12).clamp(0,127)) as u8; g = vec![root as u8, fifth, oct];
+                    } else if loop_held {
+                        let root = g[0] as i32; g = vec![root as u8, ((root+5).clamp(0,127)) as u8, ((root+7).clamp(0,127)) as u8];
+                    } else if erase_held {
+                        let root = g[0] as i32; g = vec![root as u8, ((root+2).clamp(0,127)) as u8, ((root+7).clamp(0,127)) as u8];
+                    } else if tap_held {
+                        let root = g[0] as i32; g = vec![root as u8, ((root+3).clamp(0,127)) as u8, ((root+6).clamp(0,127)) as u8];
+                    } else if follow_held {
+                        let root = g[0] as i32; g = vec![root as u8, ((root+4).clamp(0,127)) as u8, ((root+8).clamp(0,127)) as u8];
                     } else {
                         // For single, Scene/Pattern could promote to triad/tetrad
                         if scene_held && g.len() == 1 {
@@ -2013,22 +2097,33 @@ fn main_loop(
                 let gated_single = gated_single_inv;
                 if gated_single.len() == 1 {
                     let note = gated_single[0];
-                    let event_opt: Option<MidiMessage> = match pad_evt {
-                        PadEventType::NoteOn | PadEventType::PressOn => Some(MidiMessage::NoteOn { key: note.into(), vel: scaled_vel.into() }),
-                        PadEventType::NoteOff | PadEventType::PressOff => Some(MidiMessage::NoteOff { key: note.into(), vel: scaled_vel.into() }),
-                        PadEventType::Aftertouch => match settings.pad_aftertouch.as_str() {
-                            "poly" => Some(MidiMessage::Aftertouch { key: note.into(), vel: scaled_vel.into() }),
-                            "channel" => Some(MidiMessage::ChannelAftertouch { vel: scaled_vel.into() }),
-                            "cc" => Some(MidiMessage::Controller { controller: 74u8.into(), value: scaled_vel.into() }),
-                            _ => None,
+                    match pad_evt {
+                        PadEventType::NoteOn | PadEventType::PressOn => {
+                            send_midi(port, channel, MidiMessage::NoteOn { key: note.into(), vel: scaled_vel.into() });
+                            if plugin_hold && !plugin_held_notes.contains(&note) { plugin_held_notes.push(note); }
                         },
-                        #[allow(unreachable_patterns)] _ => None,
-                    };
-                    if let Some(evt) = event_opt { send_midi(port, channel, evt); }
+                        PadEventType::NoteOff | PadEventType::PressOff => {
+                            if plugin_hold {
+                                if !plugin_held_notes.contains(&note) { plugin_held_notes.push(note); }
+                            } else {
+                                send_midi(port, channel, MidiMessage::NoteOff { key: note.into(), vel: scaled_vel.into() });
+                            }
+                        },
+                        PadEventType::Aftertouch => {
+                            let evt = match settings.pad_aftertouch.as_str() {
+                                "poly" => Some(MidiMessage::Aftertouch { key: note.into(), vel: scaled_vel.into() }),
+                                "channel" => Some(MidiMessage::ChannelAftertouch { vel: scaled_vel.into() }),
+                                "cc" => Some(MidiMessage::Controller { controller: 74u8.into(), value: scaled_vel.into() }),
+                                _ => None,
+                            };
+                            if let Some(e) = evt { send_midi(port, channel, e); }
+                        },
+                        #[allow(unreachable_patterns)] _ => {}
+                    }
                 } else {
                     match pad_evt {
-                        PadEventType::NoteOn | PadEventType::PressOn => { for n in gated_single { send_midi(port, channel, MidiMessage::NoteOn { key: n.into(), vel: scaled_vel.into() }); } },
-                        PadEventType::NoteOff | PadEventType::PressOff => { for n in gated_single { send_midi(port, channel, MidiMessage::NoteOff { key: n.into(), vel: scaled_vel.into() }); } },
+                        PadEventType::NoteOn | PadEventType::PressOn => { for n in gated_single { send_midi(port, channel, MidiMessage::NoteOn { key: n.into(), vel: scaled_vel.into() }); if plugin_hold && !plugin_held_notes.contains(&n) { plugin_held_notes.push(n); } } },
+                        PadEventType::NoteOff | PadEventType::PressOff => { if plugin_hold { for n in gated_single { if !plugin_held_notes.contains(&n) { plugin_held_notes.push(n); } } } else { for n in gated_single { send_midi(port, channel, MidiMessage::NoteOff { key: n.into(), vel: scaled_vel.into() }); } } },
                         PadEventType::Aftertouch => {
                             match settings.pad_aftertouch.as_str() {
                                 "poly" => { for n in gated_single { send_midi(port, channel, MidiMessage::Aftertouch { key: n.into(), vel: scaled_vel.into() }); } },
