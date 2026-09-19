@@ -1407,8 +1407,17 @@ fn main_loop(
                                 }
                             }
                         } else if is_auto_page_button(settings, button) && total_pages > 16 {
-                            // Auto+Pad for pages 17-32 (index 16..31)
-                            if settings.pad_page_hold_select {
+                            // Shift+Auto -> global page +1 (wrap all pages)
+                            if status && shift_held {
+                                current_page = (current_page + 1) % total_pages;
+                                page_changed = true;
+                                auto_page_selected_via_pad = true;
+                                println!("Pad page +1 (Shift+Auto) -> {}/{}", current_page + 1, total_pages);
+                                if lights.button_has_light(button) {
+                                    lights.set_button(button, Brightness::Bright);
+                                    changed_lights = true;
+                                }
+                            } else if settings.pad_page_hold_select {
                                 if status {
                                     auto_page_holding = true;
                                     auto_page_selected_via_pad = false;
@@ -1483,7 +1492,17 @@ fn main_loop(
                                 }
                             }
                         } else if is_pad_page_button(settings, button) && total_pages > 1 {
-                            if settings.pad_page_hold_select {
+                            // Shift+Group -> global page -1 (wrap all pages)
+                            if status && shift_held {
+                                current_page = (current_page + total_pages - 1) % total_pages;
+                                page_changed = true;
+                                page_selected_via_pad = true;
+                                println!("Pad page -1 (Shift+Group) -> {}/{}", current_page + 1, total_pages);
+                                if lights.button_has_light(button) {
+                                    lights.set_button(button, Brightness::Bright);
+                                    changed_lights = true;
+                                }
+                            } else if settings.pad_page_hold_select {
                                 if status {
                                     // press -> start holding
                                     pad_page_holding = true;
