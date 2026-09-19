@@ -1494,12 +1494,13 @@ fn main_loop(
                                         changed_lights = true;
                                     }
                                 } else {
-                                    // release -> if no pad selection happened, cycle
+                                    // release -> if no pad selection happened, cycle within Group bank 1-16
                                     pad_page_holding = false;
                                     if !page_selected_via_pad {
-                                        current_page = (current_page + 1) % total_pages;
+                                        let next = if current_page < 16 { (current_page + 1) % 16 } else { 0 };
+                                        current_page = next;
                                         page_changed = true;
-                                        println!("Pad page cycled -> {}/{}", current_page + 1, total_pages);
+                                        println!("Pad page cycled (Group) -> {}/{}", current_page + 1, total_pages);
                                     }
                                     page_selected_via_pad = false;
                                     if lights.button_has_light(button) {
@@ -1508,11 +1509,12 @@ fn main_loop(
                                     }
                                 }
                             } else {
-                                // non-hold mode: page cycle on press only
+                                // non-hold mode: page cycle on press only, within Group bank 1-16
                                 if status {
-                                    current_page = (current_page + 1) % total_pages;
+                                    let next = if current_page < 16 { (current_page + 1) % 16 } else { 0 };
+                                    current_page = next;
                                     page_changed = true;
-                                    println!("Pad page -> {}/{}", current_page + 1, total_pages);
+                                    println!("Pad page (Group) -> {}/{}", current_page + 1, total_pages);
                                 }
                             }
                             // Don't send MIDI for the paging button itself (reserved)
