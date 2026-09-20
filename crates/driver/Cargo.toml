@@ -14,6 +14,7 @@ config.workspace = true
 serde.workspace = true
 
 midir = { version = "0.10.2", features = ["default"] }
+alsa = "0.9"
 
 [features]
 jack = ["midir/jack"]

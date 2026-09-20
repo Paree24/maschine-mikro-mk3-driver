@@ -10,8 +10,8 @@ use maschine_library::controls::{Buttons, PadEventType};
 use maschine_library::font::Font;
 use maschine_library::lights::{Brightness, Lights, PadColors};
 use maschine_library::screen::Screen;
-use midir::os::unix::{VirtualInput, VirtualOutput};
-use midir::{MidiInput, MidiOutput, MidiOutputConnection};
+use midir::os::unix::VirtualOutput;
+use midir::{MidiOutput, MidiOutputConnection};
 use midly::{MidiMessage, live::LiveEvent};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -61,6 +61,11 @@ fn main() -> HidResult<()> {
 
     // BPM sync - shared between MIDI clock thread and main loop
     // When arp_sync=true there is NO silent fallback: arp only steps while clock_locked.
+    // BPM sync - shared between MIDI clock thread and main loop
+    // When arp_sync=true there is NO silent fallback: arp only steps while clock_locked.
+    // NOTE: clock input uses the raw `alsa` crate, not midir: midir 0.10's ALSA
+    // input parser panics (unwrap on None timestamp) on some system events,
+    // which kills its thread and silently drops the virtual port.
     let bpm_shared = Arc::new(Mutex::new(settings.bpm));
     let bpm_for_thread = Arc::clone(&bpm_shared);
     let clock_locked = Arc::new(Mutex::new(false));
@@ -70,87 +75,106 @@ fn main() -> HidResult<()> {
     let sync_enabled = settings.arp_sync;
     let client_name_clone = settings.client_name.clone();
     thread::spawn(move || {
+        use alsa::seq::{self, Seq};
+        use std::ffi::CString;
         let in_name = format!("{} MIDI In", client_name_clone);
-        let midi_in = match MidiInput::new(&in_name) {
-            Ok(m) => m,
+        let in_cstr = match CString::new(in_name.clone()) {
+            Ok(s) => s,
             Err(e) => {
-                eprintln!("MIDI Clock input init failed (no sync): {:?}", e);
+                eprintln!("MIDI Clock input init failed (no sync): {}", e);
                 return;
             }
         };
-        let port_name_in = in_name.clone();
-        // Virtual input port for DAW to send MIDI Clock (0xF8) to
-        let _conn = match midi_in.create_virtual(&port_name_in, move |_stamp, msg, _| {
-            if !sync_enabled { return; }
-            if msg.is_empty() { return; }
-            // MIDI Clock: 24 ticks per quarter
-            static mut LAST: Option<Instant> = None;
-            static mut INTERVALS: [Duration; 24] = [Duration::from_millis(0); 24];
-            static mut IDX: usize = 0;
-            static mut COUNT: usize = 0;
-            match msg[0] {
-                0xF8 => {
-                    unsafe {
-                        let now = Instant::now();
-                        if let Ok(mut t) = clock_last_thread.lock() { *t = Some(now); }
-                        if let Some(last) = LAST {
-                            let dt = now.duration_since(last);
-                            // Filter outliers (clock jitter) - keep 5ms to 2s (5ms = 500bpm headroom)
-                            if dt > Duration::from_millis(5) && dt < Duration::from_secs(2) {
-                                INTERVALS[IDX] = dt;
-                                IDX = (IDX + 1) % 24;
-                                COUNT = (COUNT + 1).min(24);
-                                if COUNT >= 12 {
-                                    // Average last 24 (or COUNT) intervals
-                                    let sum: Duration = INTERVALS[..COUNT].iter().sum();
-                                    let avg = sum / COUNT as u32;
-                                    let bpm = 60.0 / (avg.as_secs_f32() * 24.0);
-                                    if bpm >= 20.0 && bpm <= 300.0 {
-                                        if let Ok(mut b) = bpm_for_thread.lock() {
-                                            // Smooth: only update if change >0.5 bpm
-                                            if (*b - bpm).abs() > 0.5 {
-                                                *b = bpm;
-                                                println!("DAW BPM sync -> {:.1}", bpm);
-                                            }
-                                            drop(b);
-                                            if let Ok(mut l) = clock_locked_thread.lock() {
-                                                if !*l {
-                                                    *l = true;
-                                                    println!("DAW clock locked @ {:.1}bpm - arp live", bpm);
-                                                }
-                                            }
+        let mut seq = match Seq::open(None, None, false) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("MIDI Clock input init failed (no sync): {}", e);
+                return;
+            }
+        };
+        if let Err(e) = seq.set_client_name(&in_cstr) {
+            eprintln!("MIDI Clock set_client_name failed (no sync): {}", e);
+            return;
+        }
+        let port = match seq.create_simple_port(
+            &in_cstr,
+            seq::PortCap::WRITE | seq::PortCap::SUBS_WRITE,
+            seq::PortType::MIDI_GENERIC | seq::PortType::APPLICATION,
+        ) {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("MIDI Clock virtual input failed (no sync): {}", e);
+                return;
+            }
+        };
+        println!("MIDI Clock sync input '{}' ready (connect DAW Clock to it), sync={} (port {}:{})", in_name, sync_enabled, seq.client_id().unwrap_or(-1), port);
+        let mut input = seq.input();
+        // ALSA delivers MIDI Clock bytes as decoded event types (no timestamps needed -
+        // we stamp arrival with Instant::now, so timestamp-less system events can't crash us).
+        let mut last: Option<Instant> = None;
+        let mut intervals = [Duration::from_millis(0); 24];
+        let mut idx: usize = 0;
+        let mut count: usize = 0;
+        loop {
+            let ev = match input.event_input() {
+                Ok(ev) => ev,
+                Err(e) => {
+                    // Transient read errors (e.g. EINTR) - keep listening
+                    eprintln!("MIDI Clock read error (continuing): {}", e);
+                    thread::sleep(Duration::from_millis(10));
+                    continue;
+                }
+            };
+            if !sync_enabled { continue; }
+            match ev.get_type() {
+                seq::EventType::Clock => {
+                    let now = Instant::now();
+                    if let Ok(mut t) = clock_last_thread.lock() { *t = Some(now); }
+                    if let Some(prev) = last {
+                        let dt = now.duration_since(prev);
+                        // Filter outliers (clock jitter) - keep 5ms to 2s
+                        if dt > Duration::from_millis(5) && dt < Duration::from_secs(2) {
+                            intervals[idx] = dt;
+                            idx = (idx + 1) % 24;
+                            count = (count + 1).min(24);
+                            if count >= 12 {
+                                let sum: Duration = intervals[..count].iter().sum();
+                                let avg = sum / count as u32;
+                                let bpm = 60.0 / (avg.as_secs_f32() * 24.0);
+                                if (20.0..=300.0).contains(&bpm) {
+                                    if let Ok(mut b) = bpm_for_thread.lock() {
+                                        if (*b - bpm).abs() > 0.5 {
+                                            *b = bpm;
+                                            println!("DAW BPM sync -> {:.1}", bpm);
+                                        }
+                                    }
+                                    if let Ok(mut l) = clock_locked_thread.lock() {
+                                        if !*l {
+                                            *l = true;
+                                            println!("DAW clock locked @ {:.1}bpm - arp live", bpm);
                                         }
                                     }
                                 }
                             }
                         }
-                        LAST = Some(now);
                     }
+                    last = Some(now);
                 }
-                0xFA | 0xFB => {
-                    // Start / Continue - reset clock phase measurement
-                    unsafe { LAST = None; COUNT = 0; }
-                    println!("MIDI Clock transport {:02X} - resyncing", msg[0]);
+                seq::EventType::Start | seq::EventType::Continue => {
+                    last = None;
+                    count = 0;
+                    println!("MIDI Clock transport {:?} - resyncing", ev.get_type());
                 }
-                0xFC => {
-                    // Stop - drop lock so arp freezes instead of free-running stale
-                    unsafe { LAST = None; COUNT = 0; }
+                seq::EventType::Stop => {
+                    last = None;
+                    count = 0;
                     if let Ok(mut l) = clock_locked_thread.lock() {
                         if *l { *l = false; println!("MIDI Clock stop - arp paused, waiting for clock"); }
                     }
                 }
                 _ => {}
             }
-        }, ()) {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("MIDI Clock virtual input failed (no sync): {:?}", e);
-                return;
-            }
-        };
-        println!("MIDI Clock sync input '{}' ready (connect DAW Clock to it), sync={}", port_name_in, sync_enabled);
-        // Keep thread alive
-        loop { thread::sleep(Duration::from_secs(60)); }
+        }
     });
 
     let api = hidapi::HidApi::new()?;
