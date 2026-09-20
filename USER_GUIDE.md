@@ -195,8 +195,9 @@ Raw `1–200` → `0–127`.
 * **Step toggle** `Bright`: 7-tone → `tetrad 1-3-5-7` (via `tetrad` override), non-7 → `power+oct 1-5-8` (`root,fifth,octave`). Mutually exclusive with `Chords`.
 * **Gate modifiers** (held): `Scene` `triad→tetrad`, `Pattern` `tetrad→triad`, `Events` `major→minor` (and 7th `11→10` for tetrad), `Variation` `minor→major` (`10→11`), `Duplicate` `any→5ths`, `Select` `any→5th+oct`, `Solo` `+9th`, `Mute` `+11th`. All momentary, sorted/deduped.
 
-### 4.8 Arpeggiator
+### 4.8 Arpeggiator (DAW BPM sync)
 
+* New port `Maschine Mikro MK3 MIDI In` — route your DAW's MIDI Clock output to it (`aconnect` / patchbay). The arp follows DAW BPM (smoothed over 24 clock ticks, `20-300` range); all rates (`3/4..1/96`) scale automatically. Transport Start/Continue/Stop resets clock phase. Fallback when no clock: `bpm = 120.0`. Set `arp_sync = false` to always use `bpm`.
 * `NoteRepeat` toggle `Bright` = `arp_enabled`. `Notes` cycles `Up→Down→UpDown→DownUp→Random`.
 * `Maschine` (when arp on) = faster (next pure fraction), `Star` = slower (18 fractions `3/4 … 1/96` grouped descending, `3/4,1/2,3/8,1/3...`).
 * `Sampling` cycles `arp_octaves 1→4` (cyclic `C1 G1 C2 G2…` for Up).
