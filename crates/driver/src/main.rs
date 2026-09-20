@@ -465,6 +465,58 @@ fn update_screen_arp(screen: &mut Screen, device: &HidDevice, page: usize, total
     }
 }
 
+fn update_screen_arp_bpm(screen: &mut Screen, device: &HidDevice, arp_rate: &str, arp_oct: usize, bpm: f32) -> HidResult<()> {
+    // Transient BPM readout: shrunk rate (scale 1) top-left, BPM big (scale 2) right.
+    // Shown only for 2s after a BPM change, then the normal arp screen returns.
+    screen.reset();
+    let mut x = 4;
+    for ch in arp_rate.chars() {
+        if ch == '/' {
+            for i in 0..8 { screen.set(2 + i, x + 7 - i, true); }
+            x += 10;
+        } else if let Some(d) = ch.to_digit(10) {
+            Font::write_digit(screen, 2, x, d as usize, 1);
+            x += 10;
+        }
+    }
+    let b = (bpm.round() as i32).clamp(0, 999) as usize;
+    let digits: Vec<usize> = if b >= 100 { vec![b / 100, (b / 10) % 10, b % 10] } else { vec![(b / 10) % 10, b % 10] };
+    let mut x = 124usize.saturating_sub(digits.len() * 18);
+    for d in digits {
+        Font::write_digit(screen, 8, x, d, 2);
+        x += 18;
+    }
+    Font::write_digit(screen, 0, 110, arp_oct.min(9), 1);
+    screen.write(device)
+}
+
+// Manual BPM (Shift+Maschine/Star/Swing/Tempo): explicit user tempo, no silent fallback.
+// Sets shared BPM, counts as locked so the arp runs without DAW clock. DAW clock
+// takes over the value when present; DAW stop leaves the manual tempo running.
+#[allow(clippy::too_many_arguments)]
+fn manual_bpm_adjust(
+    bpm_shared: &Arc<Mutex<f32>>,
+    clock_locked: &Arc<Mutex<bool>>,
+    bpm_manual: &mut bool,
+    delta: f32,
+    screen: &mut Screen,
+    device: &HidDevice,
+    arp_rate_name: &str,
+    arp_octaves: usize,
+    bpm_show_until: &mut Option<Instant>,
+    last_shown_bpm: &mut i32,
+) {
+    let mut bpm = *bpm_shared.lock().unwrap();
+    bpm = (bpm + delta).clamp(20.0, 300.0);
+    *bpm_shared.lock().unwrap() = bpm;
+    *bpm_manual = true;
+    if let Ok(mut l) = clock_locked.lock() { *l = true; }
+    *last_shown_bpm = bpm.round() as i32;
+    *bpm_show_until = Some(Instant::now() + Duration::from_secs(2));
+    let _ = update_screen_arp_bpm(screen, device, arp_rate_name, arp_octaves, bpm);
+    println!("Manual BPM -> {:.0}", bpm);
+}
+
 fn send_midi(port: &mut MidiOutputConnection, channel: u8, msg: MidiMessage) {
     let ev = LiveEvent::Midi {
         channel: channel.into(),
@@ -803,6 +855,9 @@ fn main_loop(
     let mut arp_current_notes: Option<Vec<u8>> = None;
     let mut fixed_vel_active = false;
     let mut last_no_clock_log = Instant::now() - Duration::from_secs(10);
+    let mut bpm_manual = false;
+    let mut bpm_show_until: Option<Instant> = None;
+    let mut last_shown_bpm: i32 = -1;
 
     // For auto-clearing page selector LEDs
     let mut selector_active = false;
@@ -862,16 +917,34 @@ fn main_loop(
                 }
             }
         }
-        let clock_ok = !settings.arp_sync || *clock_locked.lock().unwrap();
+        let clock_ok = !settings.arp_sync || *clock_locked.lock().unwrap() || bpm_manual;
         {
             let current_bpm = *bpm_shared.lock().unwrap();
             let diff = (current_bpm - bpm_cached).abs();
             if diff > 0.03 {
                 bpm_cached = current_bpm;
                 arp_rate = Duration::from_secs_f32(60.0 / bpm_cached * arp_beats);
-                // Screen shows rate name + octaves only, no redraw needed on tempo change.
+                // Screen shows rate name + octaves only, no redraw needed on tempo change -
+                // except the transient big-BPM readout on rounded-value change.
                 if diff > 0.3 {
                     println!("BPM update -> {:.1} (arp {})", bpm_cached, arp_rate_name);
+                }
+                let r = bpm_cached.round() as i32;
+                if r != last_shown_bpm {
+                    last_shown_bpm = r;
+                    bpm_show_until = Some(Instant::now() + Duration::from_secs(2));
+                    let _ = update_screen_arp_bpm(screen, device, &arp_rate_name, arp_octaves, bpm_cached);
+                }
+            }
+        }
+        // Expire the transient BPM readout back to the normal screen.
+        if let Some(until) = bpm_show_until {
+            if Instant::now() >= until {
+                bpm_show_until = None;
+                if arp_enabled {
+                    let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
+                } else {
+                    let _ = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset);
                 }
             }
         }
@@ -1131,6 +1204,13 @@ fn main_loop(
                                 lights.set_button(Buttons::Notes, Brightness::Dim);
                                 changed_lights = true;
                             }
+                        } else if status && button == Buttons::Maschine && shift_held {
+                            // Shift+Maschine = manual BPM +1 (works with arp on or off)
+                            manual_bpm_adjust(&bpm_shared, &clock_locked, &mut bpm_manual, 1.0, screen, device, &arp_rate_name, arp_octaves, &mut bpm_show_until, &mut last_shown_bpm);
+                            if lights.button_has_light(Buttons::Maschine) {
+                                lights.set_button(Buttons::Maschine, Brightness::Bright);
+                                changed_lights = true;
+                            }
                         } else if status && button == Buttons::Maschine && arp_enabled {
                             // Maschine = faster (next rate), Star = slower (prev)
                             const RATES: &[(&str, f32)] = &[
@@ -1148,9 +1228,16 @@ fn main_loop(
                                 lights.set_button(Buttons::Maschine, Brightness::Bright);
                                 changed_lights = true;
                             }
-                        } else if !status && button == Buttons::Maschine && arp_enabled {
+                        } else if !status && button == Buttons::Maschine {
                             if lights.button_has_light(Buttons::Maschine) {
                                 lights.set_button(Buttons::Maschine, Brightness::Dim);
+                                changed_lights = true;
+                            }
+                        } else if status && button == Buttons::Star && shift_held {
+                            // Shift+Star = manual BPM -1 (works with arp on or off)
+                            manual_bpm_adjust(&bpm_shared, &clock_locked, &mut bpm_manual, -1.0, screen, device, &arp_rate_name, arp_octaves, &mut bpm_show_until, &mut last_shown_bpm);
+                            if lights.button_has_light(Buttons::Star) {
+                                lights.set_button(Buttons::Star, Brightness::Bright);
                                 changed_lights = true;
                             }
                         } else if status && button == Buttons::Star && arp_enabled {
@@ -1169,9 +1256,16 @@ fn main_loop(
                                 lights.set_button(Buttons::Star, Brightness::Bright);
                                 changed_lights = true;
                             }
-                        } else if !status && button == Buttons::Star && arp_enabled {
+                        } else if !status && button == Buttons::Star {
                             if lights.button_has_light(Buttons::Star) {
                                 lights.set_button(Buttons::Star, Brightness::Dim);
+                                changed_lights = true;
+                            }
+                        } else if status && button == Buttons::Tempo && shift_held {
+                            // Shift+Tempo = manual BPM -10 (works with arp on or off)
+                            manual_bpm_adjust(&bpm_shared, &clock_locked, &mut bpm_manual, -10.0, screen, device, &arp_rate_name, arp_octaves, &mut bpm_show_until, &mut last_shown_bpm);
+                            if lights.button_has_light(Buttons::Tempo) {
+                                lights.set_button(Buttons::Tempo, Brightness::Bright);
                                 changed_lights = true;
                             }
                         } else if status && button == Buttons::Tempo && arp_enabled {
@@ -1180,7 +1274,7 @@ fn main_loop(
                                 lights.set_button(Buttons::Tempo, Brightness::Bright);
                                 changed_lights = true;
                             }
-                        } else if !status && button == Buttons::Tempo && arp_enabled {
+                        } else if !status && button == Buttons::Tempo {
                             if lights.button_has_light(Buttons::Tempo) {
                                 lights.set_button(Buttons::Tempo, Brightness::Dim);
                                 changed_lights = true;
@@ -1196,6 +1290,13 @@ fn main_loop(
                         } else if !status && button == Buttons::Sampling && arp_enabled {
                             if lights.button_has_light(Buttons::Sampling) {
                                 lights.set_button(Buttons::Sampling, Brightness::Dim);
+                                changed_lights = true;
+                            }
+                        } else if status && button == Buttons::Swing && shift_held {
+                            // Shift+Swing = manual BPM +10 (works with arp on or off)
+                            manual_bpm_adjust(&bpm_shared, &clock_locked, &mut bpm_manual, 10.0, screen, device, &arp_rate_name, arp_octaves, &mut bpm_show_until, &mut last_shown_bpm);
+                            if lights.button_has_light(Buttons::Swing) {
+                                lights.set_button(Buttons::Swing, Brightness::Bright);
                                 changed_lights = true;
                             }
                         } else if status && button == Buttons::Swing {

@@ -15,12 +15,12 @@
 
 | # | Button | Type | MIDI CC (example_config) | Status | Notes |
 |---|--------|------|--------------------------|--------|-------|
-| 0 | **Maschine** | Gate (arp) / CC | `CC 38` | **Reserved when arp on** `faster rate`, else CC | Arp `Maschine` = faster (next pure fraction `3/4..1/96`) `Bright` on press |
-| 1 | **Star** | Gate (arp) / CC | `CC 39` | Reserved when arp on `slower rate`, else CC | Arp `Star` = slower |
+| 0 | **Maschine** | Gate (arp) / CC | `CC 38` | **Reserved when arp on** `faster rate`, else CC | Arp `Maschine` = faster (next pure fraction `3/4..1/96`) `Bright` on press; `Shift+Maschine` = manual BPM +1 |
+| 1 | **Star** | Gate (arp) / CC | `CC 39` | Reserved when arp on `slower rate`, else CC | Arp `Star` = slower; `Shift+Star` = manual BPM −1 |
 | 2 | **Browse** | **Gate** | `CC 40` overridden | **Reserved** | Resets `arp` to `1/16` `Straight` `Bright` on press `Dim` on release |
 | 3 | **Volume** | **Toggle sustain** | `CC 44` overridden | **Reserved** | `Bright` = `CC64 127` sustain on, `Dim` = `CC64 0` off (pad + midi ch) |
-| 4 | **Swing** | **Gate arp swing** | `CC 46` overridden | **Reserved** | Cycles `Straight 50 → Light 55 → Medium 60 → Triplet 66.7` `Bright`/`Dim`, interval `long=rate*swing/50` `short=rate*(100-swing)/50` |
-| 5 | **Tempo** | Gate (arp) / CC | `CC 48` | Reserved when arp on `Bright`, else CC | Free when arp off |
+| 4 | **Swing** | **Gate arp swing** | `CC 46` overridden | **Reserved** | Cycles `Straight 50 → Light 55 → Medium 60 → Triplet 66.7` `Bright`/`Dim`, interval `long=rate*swing/50` `short=rate*(100-swing)/50`; `Shift+Swing` = manual BPM +10 |
+| 5 | **Tempo** | Gate (arp) / CC | `CC 48` | Reserved when arp on `Bright`, else CC | Free when arp off; `Shift+Tempo` = manual BPM −10 |
 | 6 | **Plugin** | **Toggle hold/latch** | `CC 45` overridden | **Reserved** | `Bright` = hold note/chord (suppress `NoteOff`) + arp latch (keeps arpeggiating after release), `Dim` = release all held/latched |
 | 7 | **Sampling** | Gate (arp) | `CC 47` | Reserved when arp on | Cycles `arp_octaves 1→2→3→4→1` `Bright`/`Dim` |
 | 8 | **Left** | **Transpose −1** | – (reserved) | **Reserved** | `Shift+Left` = −12 octave, range `−48..+48`. Freed from CC. |

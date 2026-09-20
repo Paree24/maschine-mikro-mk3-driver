@@ -201,6 +201,7 @@ Raw `1–200` → `0–127`.
 * `NoteRepeat` toggle `Bright` = `arp_enabled`. `Notes` cycles `Up→Down→UpDown→DownUp→Random`.
 * `Maschine` (when arp on) = faster (next pure fraction), `Star` = slower (18 fractions `3/4 … 1/96` grouped descending, `3/4,1/2,3/8,1/3...`).
 * `Sampling` cycles `arp_octaves 1→4` (cyclic `C1 G1 C2 G2…` for Up).
+* Manual BPM (no DAW needed): `Shift+Maschine` +1, `Shift+Star` −1, `Shift+Swing` +10, `Shift+Tempo` −10 (`20-300`, `Bright`/`Dim`). Explicit user tempo — counts as locked so the arp runs standalone; DAW clock takes over the value when present. Screen shows big BPM for 2s on change (rate shrunk top-left), then returns to the rate display.
 * `Swing` cycles `Straight 50 → Light 55 → Medium 60 → Triplet 66.7` — interval `long=rate*swing/50`, `short=rate*(100-swing)/50`, alternated via `arp_pos%2` preserving average.
 * Held pads arpeggiated as single notes or triads (if `Chords` on), with octave expansion cyclic, `Random` via `DefaultHasher`. `Chords`/`Step` + gates also affect `held_arp_notes`.
 
