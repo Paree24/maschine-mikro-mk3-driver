@@ -104,7 +104,7 @@ Defaults defined in `crates/driver/src/settings.rs:277` and `example_config.toml
 | **Auto** | `Auto+Pad` / tap `Auto` | 17-32 (16-31) | Scales 17-32 (Kumoi … Romanian Minor) |
 | **Lock** | `Lock+Pad` / tap `Lock` | 33-48 (32-47) | Scales 33-48 (… up) |
 | **PadMode** | `PadMode+Pad` / tap `PadMode` | 65-80 (64-79) | `65` Micro Drum Sampler (exact NCC), `66` MT Power Kit (GM core), `67` General MIDI 35-50, `68` Salamander Kit (Sforzando), `69-80` generic kits — gate unlocks |
-| **Keyboard** | `Keyboard+Pad` / tap `Keyboard` | 65-80 (64-79) | Keyboard 1-16 (repo scales: `major blues`/`bebop`/`diminished`/`lydian dominant`/`altered`/`dorian b2`/`ultralocrian`/`augmented heptatonic`/`whole tone`/`locrian major`/`double harmonic lydian`/`enigmatic`/`major augmented`/`messiaen #4`/`composite blues`/`lydian augmented`) — gate unlocks |
+| **Keyboard** | `Keyboard+Pad` / tap `Keyboard` | 49-64 (48-63) | Keyboard 1-16 (repo scales: `major blues`/`bebop`/`diminished`/`lydian dominant`/`altered`/`dorian b2`/`ultralocrian`/`augmented heptatonic`/`whole tone`/`locrian major`/`double harmonic lydian`/`enigmatic`/`major augmented`/`messiaen #4`/`composite blues`/`lydian augmented`) — gate unlocks |
 
 `pad_page_button="Group"`, `auto_page_button="Auto"`, `lock_page_button="Lock"`, padmode hard-coded to `48`. Hold-select: `pad_page_hold_select=true` (hold button + tap pad selects directly, tap alone cycles). Set `pad_page_button=""` to disable paging.
 
@@ -351,17 +351,20 @@ pad_pages = [
   [48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63], # C2
   [60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75], # C3
 ]
-pad_page_button = "Keyboard"
+pad_page_button = "Group"  # tap Group cycles C2 <-> C3 (Keyboard is reserved for the 49-64 bank)
 ```
 
-**Transport as Notes for Ableton:**
+**DAW-synced arp (e.g. Waveform):**
 
 ```toml
-[buttons]
-Play = { type = "note", note = 60, channel = 0 }
-Stop = { type = "note", note = 61 }
-Rec  = { type = "note", note = 62 }
+arp_sync = true
+bpm = 120.0  # only used with arp_sync = false
 ```
+
+Route DAW MIDI Clock out → `Maschine Mikro MK3 MIDI In`, press play.
+No clock = frozen arp + `arp waiting for DAW MIDI Clock` in logs (never silent).
+Standalone without a DAW: `Shift+Maschine` +1, `Shift+Star` −1,
+`Shift+Swing` +10, `Shift+Tempo` −10 (`20-300`); screen flashes the big BPM for 2s.
 
 **Disable page switch, make Group a regular CC:**
 
