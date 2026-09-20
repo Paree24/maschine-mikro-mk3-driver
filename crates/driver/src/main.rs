@@ -146,13 +146,13 @@ fn main() -> HidResult<()> {
                                 if (20.0..=300.0).contains(&bpm) {
                                     if let Ok(mut b) = bpm_for_thread.lock() {
                                         let diff = (*b - bpm).abs();
-                                        if diff > 1.0 {
+                                        if diff > 2.0 {
                                             // Real tempo jump - catch up immediately
                                             *b = bpm;
                                             println!("DAW BPM sync -> {:.1}", bpm);
                                         } else if diff > 0.05 {
                                             // Jitter glide - no chatter, no log spam
-                                            *b += (bpm - *b) * 0.1;
+                                            *b += (bpm - *b) * 0.08;
                                         }
                                     }
                                     if let Ok(mut l) = clock_locked_thread.lock() {
