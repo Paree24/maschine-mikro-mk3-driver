@@ -197,7 +197,7 @@ Raw `1–200` → `0–127`.
 
 ### 4.8 Arpeggiator (DAW BPM sync)
 
-* New port `Maschine Mikro MK3 MIDI In` — route your DAW's MIDI Clock output to it (`aconnect` / patchbay). The arp follows DAW BPM (smoothed over 24 clock ticks, `20-300` range); all rates (`3/4..1/96`) scale automatically. Transport Start/Continue/Stop resets clock phase. Fallback when no clock: `bpm = 120.0`. Set `arp_sync = false` to always use `bpm`.
+* New port `Maschine Mikro MK3 MIDI In` — route your DAW's MIDI Clock output to it (`aconnect` / patchbay) and press play. The arp follows DAW BPM (smoothed over 24 clock ticks, `20-300` range); all rates (`3/4..1/96`) scale automatically. Transport Start/Continue resyncs phase, Stop pauses the arp. There is NO silent fallback: without clock lock the arp stays frozen and logs `arp waiting for DAW MIDI Clock` (every 5s); clock loss (>2s no ticks) pauses it. `bpm = 120.0` is used only with `arp_sync = false`.
 * `NoteRepeat` toggle `Bright` = `arp_enabled`. `Notes` cycles `Up→Down→UpDown→DownUp→Random`.
 * `Maschine` (when arp on) = faster (next pure fraction), `Star` = slower (18 fractions `3/4 … 1/96` grouped descending, `3/4,1/2,3/8,1/3...`).
 * `Sampling` cycles `arp_octaves 1→4` (cyclic `C1 G1 C2 G2…` for Up).

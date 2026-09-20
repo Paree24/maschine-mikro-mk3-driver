@@ -60,8 +60,13 @@ fn main() -> HidResult<()> {
         .expect("Couldn't create virtual port");
 
     // BPM sync - shared between MIDI clock thread and main loop
+    // When arp_sync=true there is NO silent fallback: arp only steps while clock_locked.
     let bpm_shared = Arc::new(Mutex::new(settings.bpm));
     let bpm_for_thread = Arc::clone(&bpm_shared);
+    let clock_locked = Arc::new(Mutex::new(false));
+    let clock_locked_thread = Arc::clone(&clock_locked);
+    let clock_last_tick = Arc::new(Mutex::new(None::<Instant>));
+    let clock_last_thread = Arc::clone(&clock_last_tick);
     let sync_enabled = settings.arp_sync;
     let client_name_clone = settings.client_name.clone();
     thread::spawn(move || {
@@ -87,6 +92,7 @@ fn main() -> HidResult<()> {
                 0xF8 => {
                     unsafe {
                         let now = Instant::now();
+                        if let Ok(mut t) = clock_last_thread.lock() { *t = Some(now); }
                         if let Some(last) = LAST {
                             let dt = now.duration_since(last);
                             // Filter outliers (clock jitter) - keep 5ms to 2s (5ms = 500bpm headroom)
@@ -101,10 +107,17 @@ fn main() -> HidResult<()> {
                                     let bpm = 60.0 / (avg.as_secs_f32() * 24.0);
                                     if bpm >= 20.0 && bpm <= 300.0 {
                                         if let Ok(mut b) = bpm_for_thread.lock() {
-                                            // Smooth: only update if change >1% or 0.5 bpm
+                                            // Smooth: only update if change >0.5 bpm
                                             if (*b - bpm).abs() > 0.5 {
                                                 *b = bpm;
                                                 println!("DAW BPM sync -> {:.1}", bpm);
+                                            }
+                                            drop(b);
+                                            if let Ok(mut l) = clock_locked_thread.lock() {
+                                                if !*l {
+                                                    *l = true;
+                                                    println!("DAW clock locked @ {:.1}bpm - arp live", bpm);
+                                                }
                                             }
                                         }
                                     }
@@ -114,10 +127,17 @@ fn main() -> HidResult<()> {
                         LAST = Some(now);
                     }
                 }
-                0xFA | 0xFB | 0xFC => {
-                    // Start / Continue / Stop - reset clock phase
-                    unsafe { LAST = None; }
-                    println!("MIDI Clock transport {:02X}", msg[0]);
+                0xFA | 0xFB => {
+                    // Start / Continue - reset clock phase measurement
+                    unsafe { LAST = None; COUNT = 0; }
+                    println!("MIDI Clock transport {:02X} - resyncing", msg[0]);
+                }
+                0xFC => {
+                    // Stop - drop lock so arp freezes instead of free-running stale
+                    unsafe { LAST = None; COUNT = 0; }
+                    if let Ok(mut l) = clock_locked_thread.lock() {
+                        if *l { *l = false; println!("MIDI Clock stop - arp paused, waiting for clock"); }
+                    }
                 }
                 _ => {}
             }
@@ -148,7 +168,7 @@ fn main() -> HidResult<()> {
     // Show initial page on screen
     update_screen(&mut screen, &device, 0, pages.len())?;
 
-    main_loop(&device, &mut screen, &mut lights, &mut port, &settings, bpm_shared)?;
+    main_loop(&device, &mut screen, &mut lights, &mut port, &settings, bpm_shared, clock_locked, clock_last_tick)?;
 
     Ok(())
 }
@@ -635,6 +655,8 @@ fn main_loop(
     port: &mut MidiOutputConnection,
     settings: &Settings,
     bpm_shared: Arc<Mutex<f32>>,
+    clock_locked: Arc<Mutex<bool>>,
+    clock_last_tick: Arc<Mutex<Option<Instant>>>,
 ) -> HidResult<()> {
     let base_pages = settings.effective_pad_pages();
     // 16 fresh drum pages for PadMode gate (mainly for drums) - appended to make 64 total
@@ -749,6 +771,7 @@ fn main_loop(
     let mut arp_last_tick = Instant::now();
     let mut arp_current_notes: Option<Vec<u8>> = None;
     let mut fixed_vel_active = false;
+    let mut last_no_clock_log = Instant::now() - Duration::from_secs(10);
 
     // For auto-clearing page selector LEDs
     let mut selector_active = false;
@@ -795,7 +818,20 @@ fn main_loop(
 
     let mut buf = [0u8; 64];
     loop {
-        // BPM sync - update arp_rate if DAW BPM changed (via MIDI Clock)
+        // BPM sync - no silent fallback: with arp_sync the arp only steps while clock_locked.
+        // Drop lock if ticks stall >2s (transport stopped without FC).
+        if settings.arp_sync {
+            let stalled = match *clock_last_tick.lock().unwrap() {
+                Some(t) => t.elapsed() > Duration::from_secs(2),
+                None => false,
+            };
+            if stalled {
+                if let Ok(mut l) = clock_locked.lock() {
+                    if *l { *l = false; println!("DAW clock lost (>2s no ticks), arp paused"); }
+                }
+            }
+        }
+        let clock_ok = !settings.arp_sync || *clock_locked.lock().unwrap();
         {
             let current_bpm = *bpm_shared.lock().unwrap();
             if (current_bpm - bpm_cached).abs() > 0.01 {
@@ -807,13 +843,18 @@ fn main_loop(
                 println!("BPM update -> {:.1} (arp {} @ {:.1}bpm)", bpm_cached, arp_rate_name, bpm_cached);
             }
         }
+        let arp_ticking = arp_enabled && !held_arp_notes.is_empty() && clock_ok;
+        if arp_enabled && !held_arp_notes.is_empty() && !clock_ok && last_no_clock_log.elapsed() > Duration::from_secs(5) {
+            println!("arp waiting for DAW MIDI Clock (no lock) - route DAW clock to '{} MIDI In' and press play", settings.client_name);
+            last_no_clock_log = Instant::now();
+        }
         // Arp tick - swing-aware interval (Straight 50 / Light 55 / Medium 60 / Triplet 66.7)
         let arp_interval = if arp_swing_percent == 50.0 { arp_rate } else {
             let is_long = arp_pos % 2 == 0;
             let factor = if is_long { arp_swing_percent / 50.0 } else { (100.0 - arp_swing_percent) / 50.0 };
             arp_rate.mul_f32(factor)
         };
-        if arp_enabled && !held_arp_notes.is_empty() && arp_last_tick.elapsed() >= arp_interval {
+        if arp_ticking && arp_last_tick.elapsed() >= arp_interval {
             if let Some(prev) = arp_current_notes.take() {
                 for n in &prev { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOff { key: (*n).into(), vel: 0.into() }); }
             }
@@ -905,7 +946,7 @@ fn main_loop(
             let factor = if is_long { arp_swing_percent / 50.0 } else { (100.0 - arp_swing_percent) / 50.0 };
             arp_rate.mul_f32(factor)
         };
-        if arp_enabled && !held_arp_notes.is_empty() && arp_last_tick.elapsed() >= arp_interval2 {
+        if arp_ticking && arp_last_tick.elapsed() >= arp_interval2 {
             if let Some(prev) = arp_current_notes.take() {
                 for n in &prev { send_midi(port, settings.pad_midi_channel(), MidiMessage::NoteOff { key: (*n).into(), vel: 0.into() }); }
             }
@@ -1033,6 +1074,10 @@ fn main_loop(
                             changed_lights = true;
                             if arp_enabled {
                                 let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
+                                if settings.arp_sync && !*clock_locked.lock().unwrap() {
+                                    println!("Arp on - waiting for DAW MIDI Clock (route clock to '{} MIDI In')", settings.client_name);
+                                    last_no_clock_log = Instant::now();
+                                }
                             } else {
                                 let _ = update_screen_with_transpose(screen, device, current_page, total_pages, transpose_offset);
                             }

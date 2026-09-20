@@ -175,7 +175,9 @@ pad_page_hold_select = true
 pad_aftertouch = "poly"
 daw_mackie = false
 
-# Arp tempo: follows DAW MIDI Clock when connected, else this fallback BPM
+# Arp tempo: with arp_sync=true the arp ONLY runs on DAW MIDI Clock
+# (route DAW clock to 'Maschine Mikro MK3 MIDI In'; no silent fallback -
+# arp stays frozen until clock locks). bpm is used only when arp_sync=false.
 bpm = 120.0
 arp_sync = true
 
