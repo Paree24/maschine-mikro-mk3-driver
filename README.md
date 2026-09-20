@@ -24,11 +24,17 @@ Let's install dependencies first:
 Then we can proceed with the repo:
 
 ```shell
-git clone https://github.com/r00tman/maschine-mikro-mk3-driver.git; cd maschine-mikro-mk3-driver
+git clone https://github.com/Paree24/maschine-mikro-mk3-driver.git; cd maschine-mikro-mk3-driver
 sudo cp 98-maschine.rules /etc/udev/rules.d/
 sudo udevadm control --reload && sudo udevadm trigger
 cargo run --release
 ```
+
+> **Service users:** if `maschine-mikro.service` is active, don't `cargo run` alongside it
+> (two instances = duplicate MIDI ports). Build instead and restart the service:
+> ```shell
+> cargo build --release && systemctl --user restart maschine-mikro.service
+> ```
 
 This will init the controller and create an alsaseq MIDI port called `Maschine Mikro Mk3 MIDI Out`.
 Pads have been tested to work with Hydrogen, EZdrummer 2/3, Addictive Drums 2 as plugins via REAPER+LinVst and standalone via Wine.

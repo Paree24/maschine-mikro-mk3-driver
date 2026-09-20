@@ -20,7 +20,7 @@ sudo pacman -S base-devel alsa-lib pipewire-jack libusb systemd-libs
 ### Install & Run
 
 ```bash
-git clone https://github.com/r00tman/maschine-mikro-mk3-driver.git
+git clone https://github.com/Paree24/maschine-mikro-mk3-driver.git
 cd maschine-mikro-mk3-driver
 sudo cp 98-maschine.rules /etc/udev/rules.d/
 sudo udevadm control --reload && sudo udevadm trigger
