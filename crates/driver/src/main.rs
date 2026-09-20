@@ -111,8 +111,10 @@ fn main() -> HidResult<()> {
         let mut input = seq.input();
         // ALSA delivers MIDI Clock bytes as decoded event types (no timestamps needed -
         // we stamp arrival with Instant::now, so timestamp-less system events can't crash us).
+        // Wide window (96 ticks = 4 beats) + glide: DAW clocks are buffer-quantized
+        // and jittery, a narrow window with bang-bang updates makes the arp wobble.
         let mut last: Option<Instant> = None;
-        let mut intervals = [Duration::from_millis(0); 24];
+        let mut intervals = [Duration::from_millis(0); 96];
         let mut idx: usize = 0;
         let mut count: usize = 0;
         loop {
@@ -135,17 +137,22 @@ fn main() -> HidResult<()> {
                         // Filter outliers (clock jitter) - keep 5ms to 2s
                         if dt > Duration::from_millis(5) && dt < Duration::from_secs(2) {
                             intervals[idx] = dt;
-                            idx = (idx + 1) % 24;
-                            count = (count + 1).min(24);
-                            if count >= 12 {
+                            idx = (idx + 1) % 96;
+                            count = (count + 1).min(96);
+                            if count >= 24 {
                                 let sum: Duration = intervals[..count].iter().sum();
                                 let avg = sum / count as u32;
                                 let bpm = 60.0 / (avg.as_secs_f32() * 24.0);
                                 if (20.0..=300.0).contains(&bpm) {
                                     if let Ok(mut b) = bpm_for_thread.lock() {
-                                        if (*b - bpm).abs() > 0.5 {
+                                        let diff = (*b - bpm).abs();
+                                        if diff > 1.0 {
+                                            // Real tempo jump - catch up immediately
                                             *b = bpm;
                                             println!("DAW BPM sync -> {:.1}", bpm);
+                                        } else if diff > 0.05 {
+                                            // Jitter glide - no chatter, no log spam
+                                            *b += (bpm - *b) * 0.1;
                                         }
                                     }
                                     if let Ok(mut l) = clock_locked_thread.lock() {
@@ -858,13 +865,14 @@ fn main_loop(
         let clock_ok = !settings.arp_sync || *clock_locked.lock().unwrap();
         {
             let current_bpm = *bpm_shared.lock().unwrap();
-            if (current_bpm - bpm_cached).abs() > 0.01 {
+            let diff = (current_bpm - bpm_cached).abs();
+            if diff > 0.03 {
                 bpm_cached = current_bpm;
                 arp_rate = Duration::from_secs_f32(60.0 / bpm_cached * arp_beats);
-                if arp_enabled {
-                    let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
+                // Screen shows rate name + octaves only, no redraw needed on tempo change.
+                if diff > 0.3 {
+                    println!("BPM update -> {:.1} (arp {})", bpm_cached, arp_rate_name);
                 }
-                println!("BPM update -> {:.1} (arp {} @ {:.1}bpm)", bpm_cached, arp_rate_name, bpm_cached);
             }
         }
         let arp_ticking = arp_enabled && !held_arp_notes.is_empty() && clock_ok;
