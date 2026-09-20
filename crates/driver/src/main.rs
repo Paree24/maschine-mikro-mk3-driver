@@ -89,8 +89,8 @@ fn main() -> HidResult<()> {
                         let now = Instant::now();
                         if let Some(last) = LAST {
                             let dt = now.duration_since(last);
-                            // Filter outliers (clock jitter) - keep 10ms to 2s
-                            if dt > Duration::from_millis(10) && dt < Duration::from_secs(2) {
+                            // Filter outliers (clock jitter) - keep 5ms to 2s (5ms = 500bpm headroom)
+                            if dt > Duration::from_millis(5) && dt < Duration::from_secs(2) {
                                 INTERVALS[IDX] = dt;
                                 IDX = (IDX + 1) % 24;
                                 COUNT = (COUNT + 1).min(24);
