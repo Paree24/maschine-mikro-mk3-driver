@@ -53,6 +53,8 @@ fn default_octave_up() -> String {
 fn default_octave_down() -> String {
     "".to_string()
 }
+fn default_bpm() -> f32 { 120.0 }
+fn default_arp_sync() -> bool { true }
 fn default_scale_names() -> Vec<String> {
     vec![
         "Chromatic".to_string(), "Major".to_string(), "Minor".to_string(), "Dorian".to_string(),
@@ -239,6 +241,12 @@ pub(crate) struct Settings {
 
     #[serde(default)]
     pub daw_mackie: bool,
+
+    #[serde(default = "default_bpm")]
+    pub bpm: f32,
+
+    #[serde(default = "default_arp_sync")]
+    pub arp_sync: bool,
 }
 
 fn default_hold_select() -> bool {
@@ -270,6 +278,8 @@ impl Default for Settings {
             scale_names: default_scale_names(),
             chord_types: HashMap::new(),
             daw_mackie: false,
+            bpm: default_bpm(),
+            arp_sync: default_arp_sync(),
         }
     }
 }
@@ -514,6 +524,10 @@ impl Settings {
         }
         if !self.lock_page_button.trim().is_empty() && Self::parse_button_name(self.lock_page_button.trim()).is_none() {
             return Err(format!("lock_page_button = \"{}\" is not a valid button name", self.lock_page_button));
+        }
+
+        if self.bpm < 20.0 || self.bpm > 300.0 {
+            return Err("bpm should be 20 to 300".to_string());
         }
 
         Ok(())

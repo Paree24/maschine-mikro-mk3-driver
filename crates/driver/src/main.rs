@@ -10,10 +10,12 @@ use maschine_library::controls::{Buttons, PadEventType};
 use maschine_library::font::Font;
 use maschine_library::lights::{Brightness, Lights, PadColors};
 use maschine_library::screen::Screen;
-use midir::os::unix::VirtualOutput;
-use midir::{MidiOutput, MidiOutputConnection};
+use midir::os::unix::{VirtualInput, VirtualOutput};
+use midir::{MidiInput, MidiOutput, MidiOutputConnection};
 use midly::{MidiMessage, live::LiveEvent};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::{Duration, Instant};
 
 #[derive(Parser, Debug)]
@@ -57,6 +59,80 @@ fn main() -> HidResult<()> {
         .create_virtual(&settings.port_name)
         .expect("Couldn't create virtual port");
 
+    // BPM sync - shared between MIDI clock thread and main loop
+    let bpm_shared = Arc::new(Mutex::new(settings.bpm));
+    let bpm_for_thread = Arc::clone(&bpm_shared);
+    let sync_enabled = settings.arp_sync;
+    let client_name_clone = settings.client_name.clone();
+    thread::spawn(move || {
+        let in_name = format!("{} MIDI In", client_name_clone);
+        let midi_in = match MidiInput::new(&in_name) {
+            Ok(m) => m,
+            Err(e) => {
+                eprintln!("MIDI Clock input init failed (no sync): {:?}", e);
+                return;
+            }
+        };
+        let port_name_in = in_name.clone();
+        // Virtual input port for DAW to send MIDI Clock (0xF8) to
+        let _conn = match midi_in.create_virtual(&port_name_in, move |_stamp, msg, _| {
+            if !sync_enabled { return; }
+            if msg.is_empty() { return; }
+            // MIDI Clock: 24 ticks per quarter
+            static mut LAST: Option<Instant> = None;
+            static mut INTERVALS: [Duration; 24] = [Duration::from_millis(0); 24];
+            static mut IDX: usize = 0;
+            static mut COUNT: usize = 0;
+            match msg[0] {
+                0xF8 => {
+                    unsafe {
+                        let now = Instant::now();
+                        if let Some(last) = LAST {
+                            let dt = now.duration_since(last);
+                            // Filter outliers (clock jitter) - keep 10ms to 2s
+                            if dt > Duration::from_millis(10) && dt < Duration::from_secs(2) {
+                                INTERVALS[IDX] = dt;
+                                IDX = (IDX + 1) % 24;
+                                COUNT = (COUNT + 1).min(24);
+                                if COUNT >= 12 {
+                                    // Average last 24 (or COUNT) intervals
+                                    let sum: Duration = INTERVALS[..COUNT].iter().sum();
+                                    let avg = sum / COUNT as u32;
+                                    let bpm = 60.0 / (avg.as_secs_f32() * 24.0);
+                                    if bpm >= 20.0 && bpm <= 300.0 {
+                                        if let Ok(mut b) = bpm_for_thread.lock() {
+                                            // Smooth: only update if change >1% or 0.5 bpm
+                                            if (*b - bpm).abs() > 0.5 {
+                                                *b = bpm;
+                                                println!("DAW BPM sync -> {:.1}", bpm);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        LAST = Some(now);
+                    }
+                }
+                0xFA | 0xFB | 0xFC => {
+                    // Start / Continue / Stop - reset clock phase
+                    unsafe { LAST = None; }
+                    println!("MIDI Clock transport {:02X}", msg[0]);
+                }
+                _ => {}
+            }
+        }, ()) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("MIDI Clock virtual input failed (no sync): {:?}", e);
+                return;
+            }
+        };
+        println!("MIDI Clock sync input '{}' ready (connect DAW Clock to it), sync={}", port_name_in, sync_enabled);
+        // Keep thread alive
+        loop { thread::sleep(Duration::from_secs(60)); }
+    });
+
     let api = hidapi::HidApi::new()?;
     #[allow(non_snake_case)]
     let (VID, PID) = (0x17cc, 0x1700);
@@ -72,7 +148,7 @@ fn main() -> HidResult<()> {
     // Show initial page on screen
     update_screen(&mut screen, &device, 0, pages.len())?;
 
-    main_loop(&device, &mut screen, &mut lights, &mut port, &settings)?;
+    main_loop(&device, &mut screen, &mut lights, &mut port, &settings, bpm_shared)?;
 
     Ok(())
 }
@@ -558,6 +634,7 @@ fn main_loop(
     lights: &mut Lights,
     port: &mut MidiOutputConnection,
     settings: &Settings,
+    bpm_shared: Arc<Mutex<f32>>,
 ) -> HidResult<()> {
     let base_pages = settings.effective_pad_pages();
     // 16 fresh drum pages for PadMode gate (mainly for drums) - appended to make 64 total
@@ -657,7 +734,9 @@ fn main_loop(
     let mut last_slider_cnt: i32 = -1;
     let mut arp_enabled = false;
     let mut arp_mode = ArpMode::Up;
-    let mut arp_rate: Duration = Duration::from_secs_f32(60.0/120.0 * 0.25); // 1/16 at 120bpm
+    let mut bpm_cached = *bpm_shared.lock().unwrap();
+    let mut arp_beats: f32 = 0.25; // 1/16
+    let mut arp_rate: Duration = Duration::from_secs_f32(60.0 / bpm_cached * arp_beats);
     let mut arp_rate_name = "1/16".to_string();
     let mut arp_octaves: usize = 1;
     const ARP_SWING: &[(&str, f32)] = &[("Straight",50.0), ("Light",55.0), ("Medium",60.0), ("Triplet",66.7)];
@@ -716,6 +795,18 @@ fn main_loop(
 
     let mut buf = [0u8; 64];
     loop {
+        // BPM sync - update arp_rate if DAW BPM changed (via MIDI Clock)
+        {
+            let current_bpm = *bpm_shared.lock().unwrap();
+            if (current_bpm - bpm_cached).abs() > 0.01 {
+                bpm_cached = current_bpm;
+                arp_rate = Duration::from_secs_f32(60.0 / bpm_cached * arp_beats);
+                if arp_enabled {
+                    let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
+                }
+                println!("BPM update -> {:.1} (arp {} @ {:.1}bpm)", bpm_cached, arp_rate_name, bpm_cached);
+            }
+        }
         // Arp tick - swing-aware interval (Straight 50 / Light 55 / Medium 60 / Triplet 66.7)
         let arp_interval = if arp_swing_percent == 50.0 { arp_rate } else {
             let is_long = arp_pos % 2 == 0;
@@ -971,7 +1062,8 @@ fn main_loop(
                             let cur_idx = RATES.iter().position(|(n,_)| *n == arp_rate_name).unwrap_or(10);
                             let next_idx = (cur_idx + 1) % RATES.len();
                             let (next_name, beats) = RATES[next_idx];
-                            arp_rate = Duration::from_secs_f32(60.0/120.0 * beats);
+                            arp_beats = beats;
+                            arp_rate = Duration::from_secs_f32(60.0 / bpm_cached * beats);
                             arp_rate_name = next_name.to_string();
                             println!("Arp rate -> {} via Maschine", arp_rate_name);
                             let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
@@ -991,7 +1083,8 @@ fn main_loop(
                             let cur_idx = RATES.iter().position(|(n,_)| *n == arp_rate_name).unwrap_or(10);
                             let next_idx = (cur_idx as i32 - 1).rem_euclid(RATES.len() as i32) as usize;
                             let (next_name, beats) = RATES[next_idx];
-                            arp_rate = Duration::from_secs_f32(60.0/120.0 * beats);
+                            arp_beats = beats;
+                            arp_rate = Duration::from_secs_f32(60.0 / bpm_cached * beats);
                             arp_rate_name = next_name.to_string();
                             println!("Arp rate -> {} via Star", arp_rate_name);
                             let _ = update_screen_arp(screen, device, current_page, total_pages, transpose_offset, true, &arp_rate_name, arp_octaves);
@@ -1248,9 +1341,10 @@ fn main_loop(
                         } else if button == Buttons::Browse {
                             // Browse resets arp to 1/16th
                             if status {
-                                arp_rate = Duration::from_secs_f32(60.0/120.0 * 0.25);
+                                arp_beats = 0.25;
+                                arp_rate = Duration::from_secs_f32(60.0 / bpm_cached * arp_beats);
                                 arp_rate_name = "1/16".to_string();
-                                println!("Browse -> arp reset to 1/16");
+                                println!("Browse -> arp reset to 1/16 @ {:.1}bpm", bpm_cached);
                                 if lights.button_has_light(Buttons::Browse) {
                                     lights.set_button(Buttons::Browse, Brightness::Bright);
                                     changed_lights = true;
